@@ -1,9 +1,9 @@
 class Datapack:
-    def __init__(self, method='post', app='all', version='msw/1.0', head={}, body=b''):
+    def __init__(self, method='post', app='all', version='msw/1.0', head={}, body=b'', check_head=True):
         self.method = method
         self.app = app
         self.version = version
-        if not head:
+        if not head and check_head:
             self.head = {'nohead': "true"}
         else:
             self.head = head

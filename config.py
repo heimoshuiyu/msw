@@ -4,8 +4,6 @@ import json
 import time
 
 
-
-
 class Jsondata:
     def __init__(self, auto_save=False, auto_save_time=10):
         with open('config.json', 'r') as f:
@@ -17,11 +15,17 @@ class Jsondata:
         self.thread = threading.Thread(target=self.run, args=())
         self.thread.start()
 
-    def get(self, key):
-        try:
+    def try_to_read_jsondata(self, key, or_value, template=0):
+        if key in self.raw_jsondata.keys():
             return self.raw_jsondata[key]
-        except:
-            return False
+        else:
+            print('Error: could not find key value in file "config.json"\n'
+                  'Please set the key "%s" in file "config.json"\n'
+                  'Or MSW will set it as %s' % (key, or_value))
+            return or_value
+
+    def get(self, key):
+        return self.raw_jsondata.get(key)
 
     def set(self, key, value):
         self.raw_jsondata[key] = value
