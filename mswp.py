@@ -14,7 +14,7 @@ class Datapack:
         self.encode_data = b''
 
     def encode(self):
-        self.head['length': str(len(self.body))]
+        self.head['length'] = str(len(self.body))
         first_line = self.method.encode() + b' ' + self.app.encode() + b' ' + self.version.encode()
         heads = ''.encode()
         for i in self.head:
