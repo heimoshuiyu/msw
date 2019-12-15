@@ -91,7 +91,6 @@ class Netrecv:
                     break
                 dp.body = data[:length]  # get the body
                 data = data[length:]
-                time.sleep(1)
                 dp.encode()
                 print(dp.body)
                 print('---------------\n'+dp.encode_data.decode()+'\n---------------')
