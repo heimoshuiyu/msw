@@ -56,6 +56,7 @@ class Netrecv:
         self.thread.start()
         self.connection_list = []
         self.connection_process_thread_list =[]
+        self.un_enougth_list = []
 
     def check_accpet_connection(self):
         while True:
@@ -75,7 +76,7 @@ class Netrecv:
             dp = Datapack(check_head=False)
             dp.encode_data = data
             dp.decode()
-            send_queue.put(dp)
+
 
 
 class Netlist:  # contain net list and network controller

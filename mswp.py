@@ -1,3 +1,6 @@
+from config import jsondata
+
+
 class Datapack:
     def __init__(self, method='post', app='all', version='msw/1.0', head={}, body=b'', check_head=True):
         self.method = method
@@ -30,17 +33,8 @@ class Datapack:
             i, ii = line.split(': ')
             self.head[i] = ii
         
-    def is_enough(self):
-        body_length = len(self.body)
-        head_length = int(self.head['length'])
-        if head_length == body_length:
-            return True
-        elif head_length > body_length:
-            return False
-        else:
-            print("Error: length is larger than the body")
-            raise IOError
+def split_dp_data(data):
+    pass
 
-    def is_complete(self):
-        pass  # here needs to add more function
+
 
