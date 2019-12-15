@@ -41,3 +41,6 @@ class Datapack:
             print("Error: length is larger than the body")
             raise IOError
 
+    def is_complete(self):
+        pass  # here needs to add more function
+
