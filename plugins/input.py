@@ -14,7 +14,6 @@ def main():
         app = app.replace(' ', '')
         dp = Datapack(head={'from': __name__})
         dp.app = app
-        print(body)
         dp.body = body.encode()
         send_queue.put(dp)
 
@@ -25,7 +24,6 @@ def find_the_last(indata):  # find the last ":" index
         try:
             next_index = indata[first_index+1:].index(':')
             first_index += next_index + 1
-            print(first_index)
         except Exception as e:
             break
     last_index = copy.copy(first_index)

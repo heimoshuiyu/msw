@@ -11,6 +11,7 @@ class Datapack:
         self.encode_data = b''
 
     def encode(self):
+        self.head['length': str(len(self.body))]
         first_line = self.method.encode() + b' ' + self.app.encode() + b' ' + self.version.encode()
         heads = ''.encode()
         for i in self.head:
@@ -29,4 +30,14 @@ class Datapack:
             i, ii = line.split(': ')
             self.head[i] = ii
         
+    def is_enough(self):
+        body_length = len(self.body)
+        head_length = int(self.head['length'])
+        if head_length == body_length:
+            return True
+        elif head_length > body_length:
+            return False
+        else:
+            print("Error: length is larger than the body")
+            raise IOError
 

@@ -61,7 +61,7 @@ class Netrecv:
         while True:
             conn, addr = self.s.accept()
             self.connection_list.append((conn, addr))
-            connection_thread = threading.Thread(target=self.process_connection, args=())
+            connection_thread = threading.Thread(target=self.process_connection, args=(conn, addr))
             self.connection_process_thread_list.append(connection_thread)
             connection_thread.start()
 
@@ -69,6 +69,9 @@ class Netrecv:
         print('Connection accpet %s' % str(addr))
         while True:
             data = conn.recv(RECV_BUFF)  # here needs to check whether the package is continued
+            if not data:
+                conn.close()
+                return
             dp = Datapack(check_head=False)
             dp.encode_data = data
             dp.decode()

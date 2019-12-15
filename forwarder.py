@@ -21,13 +21,12 @@ def send_queue_function():
     global send_queue, receive_queues
     while True:
         dp = send_queue.get()
-        print('dp.app is', dp.app)
+        dp.encode()
         if dp.app == 'all':
             for q in receive_queues:
                 receive_queues[q].put(dp)
         elif ',' in dp.app:
             applist = dp.app.split(',')
-            print(applist)
             dp_list = []
             for i in range(len(applist)):  # split dp
                 new_dp = copy.copy(dp)
