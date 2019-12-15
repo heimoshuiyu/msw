@@ -2,21 +2,13 @@ import socket
 
 data = '''post log msw/1.0
 from: network
-flag: aaaaa
-length: 15
-part_length: 7
-num: 1
+flag: abcdefgh
+num: 1/2
+lengt'''
 
-hello, '''
+data2 = '''h: 3
 
-data2 = '''post log msw/1.0
-from: network
-flag: aaaaa
-part_length: 8
-length: 15
-num: 2
-
-network!'''
+abc'''
 
 data = data.encode()
 data2 = data2.encode()

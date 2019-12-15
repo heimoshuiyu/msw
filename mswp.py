@@ -21,10 +21,13 @@ class Datapack:
             heads += i.encode() + b': ' + self.head[i].encode() + b'\n'
         self.encode_data = first_line + b'\n' + heads + b'\n' + self.body
 
-    def decode(self):
+    def decode(self, only_head=False):
         index = self.encode_data.index(b'\n\n')
         upper = self.encode_data[:index]
-        self.body = self.encode_data[index+2:]
+        if not only_head:
+            self.body = self.encode_data[index+2:]
+        else:
+            self.body = b''
         upper = upper.decode()
         heads = upper.split('\n')
         first_line = heads.pop(0)
@@ -32,6 +35,9 @@ class Datapack:
         for line in heads:
             i, ii = line.split(': ')
             self.head[i] = ii
+        if only_head:
+            return self.encode_data[index+2:]
+
         
 def split_dp_data(data):
     pass

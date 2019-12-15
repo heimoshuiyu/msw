@@ -1,6 +1,7 @@
 import threading
 import socket
 import queue
+import time
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
 from config import jsondata
@@ -68,15 +69,34 @@ class Netrecv:
 
     def process_connection(self, conn, addr):
         print('Connection accpet %s' % str(addr))
+        data = b''
         while True:
-            data = conn.recv(RECV_BUFF)  # here needs to check whether the package is continued
-            if not data:
+            new_data = conn.recv(RECV_BUFF)  # here needs to check whether the package is continued
+            if not new_data:
                 conn.close()
                 return
-            dp = Datapack(check_head=False)
-            dp.encode_data = data
-            dp.decode()
-
+            data += new_data
+            while True:
+                dp = Datapack(check_head=False)
+                dp.encode_data = data
+                try:
+                    data = dp.decode(only_head=True)
+                except Exception as e:
+                    print('Decode error %s: %s' % (type(e), str(e)))
+                    print('Stop and start to receive more data')
+                    break
+                length = int(dp.head['length'])
+                if length > len(data):
+                    print('No enougth data, stop and start to receive')
+                    break
+                dp.body = data[:length]  # get the body
+                data = data[length:]
+                time.sleep(1)
+                dp.encode()
+                print(dp.body)
+                print('---------------\n'+dp.encode_data.decode()+'\n---------------')
+                if not data:
+                    break
 
 
 class Netlist:  # contain net list and network controller
@@ -139,10 +159,6 @@ class Netlist:  # contain net list and network controller
             print('succeed send %s' % data)
         except:
             print('Sending %s error, data will be DROP!!' % data[0:10])
-
-
-
-
 
 
 thread = threading.Thread(target=main, args=())
