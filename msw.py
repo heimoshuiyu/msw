@@ -1,6 +1,11 @@
+import sys
+import os
+PATH = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(PATH)
+os.chdir(PATH)
+
 from mswp import Datapack
 import threading
-import os
 from config import jsondata, global_config
 
 
