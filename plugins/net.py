@@ -70,32 +70,34 @@ class Netrecv:
     def process_connection(self, conn, addr):
         print('Connection accpet %s' % str(addr))
         data = b''
+        need_data = False
         while True:
             new_data = conn.recv(RECV_BUFF)  # here needs to check whether the package is continued
             if not new_data:
                 conn.close()
                 return
             data += new_data
-            while True:
+            while True:  # process sticky package
                 dp = Datapack(check_head=False)
                 dp.encode_data = data
                 try:
-                    data = dp.decode(only_head=True)
-                except Exception as e:
+                    if not need_data:
+                        data = dp.decode(only_head=True)
+                except Exception as e:  # check head
                     print('Decode error %s: %s' % (type(e), str(e)))
                     print('Stop and start to receive more data')
                     break
                 length = int(dp.head['length'])
-                if length > len(data):
+                if length > len(data):  # check body
                     print('No enougth data, stop and start to receive')
+                    need_data = True
                     break
+                elif length == len(data):
+                    need_data = False
                 dp.body = data[:length]  # get the body
                 data = data[length:]
                 dp.encode()
-                print(dp.body)
                 print('---------------\n'+dp.encode_data.decode()+'\n---------------')
-                if not data:
-                    break
 
 
 class Netlist:  # contain net list and network controller
