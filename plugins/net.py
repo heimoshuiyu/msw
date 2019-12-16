@@ -78,6 +78,8 @@ class Netrecv:
                 return
             data += new_data
             while True:  # process sticky package
+                if not data:
+                    break
                 dp = Datapack(check_head=False)
                 dp.encode_data = data
                 try:
