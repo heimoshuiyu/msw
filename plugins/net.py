@@ -69,45 +69,82 @@ class Netrecv:
 
     def process_connection(self, conn, addr):
         print('Connection accpet %s' % str(addr))
+        data = b''
         while True:
-            data = conn.recv(RECV_BUFF)
-            if not data:
+            new_data = conn.recv(RECV_BUFF)
+            if not new_data:
                 conn.close()
-                print('return')
+                print('return 1')
                 return
-            while data:
+            data += new_data
+
+            while True:
+
+                # try unpack #
                 dp = Datapack(check_head=False)
                 dp.encode_data = data
                 try:
-                    print(data)
-                    data = dp.decode(only_head=True)
-                except Exception as e:  # Not enough data
-                    print('Decode error %s: %s' % (type(e), str(e)))
+                    if data:
+                        data = dp.decode(only_head=True)
+                    else:
+                        print('Null data')
+                        break
+                except Exception as e:
+                    print('Decode error')
                     break
+                # try unpack #
+
                 if dp.method == 'file':
                     pass
                 else:
                     length = int(dp.head['length'])
                     data_length = len(data)
+
+                    # 3 condition
                     if length == data_length:
-                        print('length == data_length')
+                        print('=')
                         dp.body = data
                         data = b''
-                    elif length > data_length:
-                        print('length > data_length')
-                        dp.body = data
-                        while len(dp.body) < length:
-                            data = conn.recv(RECV_BUFF)
-                            if not data:
-                                conn.close()
-                                print('Connection close, dp drop')
-                                return
-                            need_length = len(data) - len(dp.body)
-                            dp.body += data[:need_length]
-                            data = data[need_length:]
-                        dp.encode()
-                        print('---------------\n' + dp.encode_data.decode() + '\n---------------')
 
+
+                    elif length > data_length:
+                        while data_length < length:
+                            new_data = conn.recv(RECV_BUFF)
+                            if not new_data:
+                                print('return 2')
+                                return
+
+                            new_data_size = len(new_data)
+                            still_need = length - data_length
+                            print(still_need)
+
+                            if new_data_size == still_need:
+                                print('data', data)
+                                print('net_data', new_data)
+                                data += new_data
+                                data_length = len(data)
+                                dp.body = data
+                                data = b''
+
+                            elif new_data_size < still_need:
+                                print('data', data)
+                                print('net_data', new_data)
+                                data += new_data
+                                data_length = len(data)
+
+                            else:
+                                print('else')
+                                data += new_data[:still_need]
+                                new_data = new_data[still_need:]
+                                data_length = len(data)
+                                dp.body = data
+                                data = new_data
+
+                    else:
+                        pass
+
+                    dp.encode()
+                    print('###############\n' + dp.encode_data.decode() + '\n###############')
 
 
     def _process_connection(self, conn, addr):
