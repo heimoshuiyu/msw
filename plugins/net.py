@@ -81,7 +81,7 @@ class Netrecv:
             while True:
 
                 # try unpack #
-                dp = copy.copy(Datapack(check_head=False))
+                dp = Datapack(check_head=False)
                 dp.encode_data = data
                 print('data', data)
                 try:
