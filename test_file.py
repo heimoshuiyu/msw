@@ -1,7 +1,7 @@
 import socket
 import time
 
-data = '''post log msw/1.0
+data = '''file log msw/1.0
 from: network
 flag: abcdefgh
 filename: download.txt

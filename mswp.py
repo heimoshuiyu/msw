@@ -1,11 +1,12 @@
 class Datapack:
     def __init__(self, method='post', app='all', version='msw/1.0', head=None, body=b'', check_head=True):
         if head is None:
-            self.head = {}
+            head = {}
+            self.head = head
         self.method = method
         self.app = app
         self.version = version
-        if not head and check_head:
+        if not self.head and check_head:
             self.head = {'nohead': "true"}
         else:
             self.head = head
@@ -21,7 +22,6 @@ class Datapack:
         self.encode_data = first_line + b'\n' + heads + b'\n' + self.body
 
     def decode(self, only_head=False):
-        self.head = {}
         index = self.encode_data.index(b'\n\n')
         upper = self.encode_data[:index]
         if not only_head:
@@ -37,3 +37,6 @@ class Datapack:
             self.head[i] = ii
         if only_head:
             return self.encode_data[index+2:]
+
+
+dp = Datapack()

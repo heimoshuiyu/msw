@@ -92,7 +92,7 @@ class Netrecv:
                         print('Null data')
                         break
                 except Exception as e:
-                    print('Decode error')
+                    print('Decode error %s: %s' % (type(e), str(e)))
                     break
                 # try unpack #
 
@@ -137,6 +137,13 @@ class Netrecv:
                                 file.write(new_data[:still_need])
                                 aleady_write_down += still_need
                                 data = new_data[still_need:]
+
+                    else:
+                        file = open(dp.head['filename'], 'wb')
+                        file.write(data[:length])
+                        data = data[length:]
+
+                    file.close()
 
                 else:  # dp.method is not 'file'
                     length = int(dp.head['length'])
