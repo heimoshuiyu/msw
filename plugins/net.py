@@ -1,7 +1,7 @@
 import threading
 import socket
 import queue
-import time
+import copy
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
 from config import jsondata
@@ -72,7 +72,7 @@ class Netrecv:
         data = b''
         while True:
             new_data = conn.recv(RECV_BUFF)
-            if not new_data:
+            if not new_data and not data:
                 conn.close()
                 print('return 1')
                 return
@@ -81,11 +81,13 @@ class Netrecv:
             while True:
 
                 # try unpack #
-                dp = Datapack(check_head=False)
+                dp = copy.copy(Datapack(check_head=False))
                 dp.encode_data = data
+                print('data', data)
                 try:
                     if data:
                         data = dp.decode(only_head=True)
+                        print('decode success')
                     else:
                         print('Null data')
                         break
@@ -95,8 +97,48 @@ class Netrecv:
                 # try unpack #
 
                 if dp.method == 'file':
-                    pass
-                else:
+                    length = int(dp.head['length'])
+                    data_length = len(data)
+
+                    # 3 condition
+                    if length == data_length:
+                        file = open(dp.head['filename'], 'wb')
+                        file.write(data)
+                        data = b''
+                        # return package needed
+
+                    elif length > data_length:
+                        file = open(dp.head['filename'], 'wb')
+                        aleady_write_down = 0
+                        file.write(data)
+                        aleady_write_down += len(data)
+                        data = b''
+
+                        while aleady_write_down < length:
+                            new_data = conn.recv(RECV_BUFF)
+                            if not new_data:
+                                print('return 22')
+                                return
+
+                            new_data_size = len(new_data)
+                            still_need = length - aleady_write_down
+                            print(still_need)
+
+                            if new_data_size == still_need:  # 3 condition of new_data
+                                print('right')
+                                file.write(new_data)
+                                aleady_write_down += new_data_size
+
+                            elif new_data_size < still_need:
+                                file.write(new_data)
+                                aleady_write_down += new_data_size
+
+                            elif new_data_size > still_need:
+                                file.write(new_data[:still_need])
+                                aleady_write_down += still_need
+                                data = new_data[still_need:]
+
+                else:  # dp.method is not 'file'
                     length = int(dp.head['length'])
                     data_length = len(data)
 
@@ -145,41 +187,6 @@ class Netrecv:
 
                     dp.encode()
                     print('###############\n' + dp.encode_data.decode() + '\n###############')
-
-    def _process_connection(self, conn, addr):
-        print('Connection accpet %s' % str(addr))
-        data = b''
-        need_data = False
-        while True:
-            new_data = conn.recv(RECV_BUFF)  # here needs to check whether the package is continued
-            if not new_data:
-                conn.close()
-                return
-            data += new_data
-            while True:  # process sticky package
-                if not data:
-                    break
-                dp = Datapack(check_head=False)
-                dp.encode_data = data
-                try:
-                    if not need_data:
-                        data = dp.decode(only_head=True)
-                except Exception as e:  # check head
-                    print('Decode error %s: %s' % (type(e), str(e)))
-                    print('Stop and start to receive more data')
-                    break
-                length = int(dp.head['length'])
-                data_length = len(data)
-                if length < data_length:
-                    dp.body = data[:length]
-                    data = data[length:]
-                    need_data = False
-                    continue
-                elif length > data_length:
-                    need_data = True
-
-                dp.encode()
-                print('---------------\n'+dp.encode_data.decode()+'\n---------------')
 
 
 class Netlist:  # contain net list and network controller

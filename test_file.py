@@ -4,14 +4,15 @@ import time
 data = '''post log msw/1.0
 from: network
 flag: abcdefgh
+filename: download.txt
 num: 1/1
-length: 9
+length: 5
 
-12345'''
+123'''
 
-data2 = '''678'''
+data2 = '''4'''
 
-data3 = '''9'''
+data3 = '''5'''
 
 data4 = '''post log msw/1.1
 from: network
@@ -21,7 +22,7 @@ length: 3
 
 abc'''
 
-data_list = [data, data2, data3, data4]
+data_list = [data,data2,data3,data4]
 code_list = []
 for i in data_list:
     code_list.append(i.encode())
