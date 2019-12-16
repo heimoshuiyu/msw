@@ -106,7 +106,6 @@ class Netrecv:
                         dp.body = data
                         data = b''
 
-
                     elif length > data_length:
                         while data_length < length:
                             new_data = conn.recv(RECV_BUFF)
@@ -141,11 +140,11 @@ class Netrecv:
                                 data = new_data
 
                     else:
-                        pass
+                        dp.body = data[:length]
+                        data = data[length:]
 
                     dp.encode()
                     print('###############\n' + dp.encode_data.decode() + '\n###############')
-
 
     def _process_connection(self, conn, addr):
         print('Connection accpet %s' % str(addr))
