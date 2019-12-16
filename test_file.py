@@ -1,7 +1,7 @@
 import socket
 import time
 
-data = '''file log msw/1.0
+data = '''post log msw/1.0
 from: network
 flag: abcdefgh
 num: 1/1
@@ -11,9 +11,9 @@ data2 = '''h: 9
 
 123'''
 
-data3 ='''456789'''
+data3 ='''45678'''
 
-data4 = '''post log msw/1.1
+data4 = '''9post log msw/1.1
 from: network
 flag: 12345678
 num: 1/1

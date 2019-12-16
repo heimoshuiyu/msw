@@ -69,6 +69,49 @@ class Netrecv:
 
     def process_connection(self, conn, addr):
         print('Connection accpet %s' % str(addr))
+        while True:
+            data = conn.recv(RECV_BUFF)
+            if not data:
+                conn.close()
+                print('return')
+                return
+            while data:
+                dp = Datapack(check_head=False)
+                dp.encode_data = data
+                try:
+                    print(data)
+                    data = dp.decode(only_head=True)
+                except Exception as e:  # Not enough data
+                    print('Decode error %s: %s' % (type(e), str(e)))
+                    break
+                if dp.method == 'file':
+                    pass
+                else:
+                    length = int(dp.head['length'])
+                    data_length = len(data)
+                    if length == data_length:
+                        print('length == data_length')
+                        dp.body = data
+                        data = b''
+                    elif length > data_length:
+                        print('length > data_length')
+                        dp.body = data
+                        while len(dp.body) < length:
+                            data = conn.recv(RECV_BUFF)
+                            if not data:
+                                conn.close()
+                                print('Connection close, dp drop')
+                                return
+                            need_length = len(data) - len(dp.body)
+                            dp.body += data[:need_length]
+                            data = data[need_length:]
+                        dp.encode()
+                        print('---------------\n' + dp.encode_data.decode() + '\n---------------')
+
+
+
+    def _process_connection(self, conn, addr):
+        print('Connection accpet %s' % str(addr))
         data = b''
         need_data = False
         while True:
@@ -90,14 +133,15 @@ class Netrecv:
                     print('Stop and start to receive more data')
                     break
                 length = int(dp.head['length'])
-                if length > len(data):  # check body
-                    print('No enougth data, stop and start to receive')
-                    need_data = True
-                    break
-                elif length == len(data):
+                data_length = len(data)
+                if length < data_length:
+                    dp.body = data[:length]
+                    data = data[length:]
                     need_data = False
-                dp.body = data[:length]  # get the body
-                data = data[length:]
+                    continue
+                elif length > data_length:
+                    need_data = True
+
                 dp.encode()
                 print('---------------\n'+dp.encode_data.decode()+'\n---------------')
 
