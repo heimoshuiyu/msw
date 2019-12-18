@@ -11,12 +11,11 @@ RECV_BUFF = jsondata.try_to_read_jsondata('recv_buff', 4096)
 
 
 def main():
-    netlist = Netlist()
     netrecv = Netrecv()
     while True:
         dp = receive_queue.get()
         dp.encode()
-        netlist.send_queue.put(dp)
+        netrecv.send_queue.put(dp)
 
 
 def connect(addr):
@@ -53,19 +52,59 @@ class Netrecv:
         listen_num = jsondata.try_to_read_jsondata('listen_num', 39)
         s.listen(listen_num)
         self.s = s
-        self.thread = threading.Thread(target=self.check_accpet_connection, args=())
-        self.thread.start()
-        self.connection_list = []
+
+        self.connection_list = []  # [(conn, addr), (conn, addr)...]
         self.connection_process_thread_list =[]
         self.un_enougth_list = []
+        self.send_queue = queue.Queue()
 
-    def check_accpet_connection(self):
+        self.thread_check_accept_connection = threading.Thread(target=self.check_accept_connection, args=())
+        self.thread_check_send_queue = threading.Thread(target=self.check_send_queue, args=())
+
+        ########################################
+        self.send_queue = queue.Queue()
+        raw_data = read_netlisttxt_file()
+        lines = raw_data.split('\n')
+        ips = []
+        for line in lines:
+            ip_port = line.split(':')
+            if len(ip_port) == 1:
+                ip = ip_port[0]
+                if not ip:  # Check whether ip is null
+                    continue
+                port = jsondata.get('listen_port')
+                if not port:
+                    port = 3900
+            ip = process_hostname(ip_port[0])
+            port = int(ip_port[1])
+            ips.append((ip, port))
+
+        for addr in ips:  # Create connection
+            conn = connect(addr)
+            self.connection_list.append((conn, addr))
+
+        # create thread
+
+        self.check_queue_thread = threading.Thread(target=self.check_send_queue, args=())
+
+        self.send_queue_dist = {}
+
+        for addr in self.addr_to_thread:  # start thread
+            self.addr_to_thread[addr].start()
+        self.check_queue_thread.start()  # thread that check the queue and send one by one
+        self.thread_check_accept_connection.start()
+        self.thread_check_send_queue.start()
+
+    def check_accept_connection(self):
         while True:
             conn, addr = self.s.accept()
             self.connection_list.append((conn, addr))
             connection_thread = threading.Thread(target=self.process_connection, args=(conn, addr))
             self.connection_process_thread_list.append(connection_thread)
             connection_thread.start()
+
+    def process_connection_send(self, conn, addr):
+        pass
 
     def process_connection(self, conn, addr):
         print('Connection accpet %s' % str(addr))
@@ -74,6 +113,7 @@ class Netrecv:
             new_data = conn.recv(RECV_BUFF)
             if not new_data and not data:
                 conn.close()
+                self.connection_list.remove((conn, addr))
                 print('return 1')
                 return
             data += new_data
@@ -144,6 +184,8 @@ class Netrecv:
                         data = data[length:]
 
                     file.close()
+                    dp.encode_data = b''
+                    send_queue.put(dp)
 
                 else:  # dp.method is not 'file'
                     length = int(dp.head['length'])
@@ -193,69 +235,8 @@ class Netrecv:
                         data = data[length:]
 
                     dp.encode()
+                    send_queue.put(dp)
                     print('###############\n' + dp.encode_data.decode() + '\n###############')
-
-
-class Netlist:  # contain net list and network controller
-    def __init__(self):
-        self.send_queue = queue.Queue()
-        raw_data = read_netlisttxt_file()
-        lines = raw_data.split('\n')
-        ips = []
-        for line in lines:
-            ip_port = line.split(':')
-            if len(ip_port) == 1:
-                ip = ip_port[0]
-                if not ip:  # Check whether ip is null
-                    continue
-                port = jsondata.get('listen_port')
-                if not port:
-                    port = 3900
-            ip = process_hostname(ip)
-            port = int(port)
-            ips.append((ip, port))
-        self.addr_to_conn = {}
-        for addr in ips:
-            self.addr_to_conn[addr] = ''  # initail connection dict
-        for addr in self.addr_to_conn:  # Create connection
-            conn = connect(addr)
-            self.addr_to_conn[addr] = conn
-        self.addr_to_thread = {}
-        for addr in self.addr_to_conn:  # Create thread
-            thread = threading.Thread(target=self.maintain_connection, args=(addr,))
-            self.addr_to_thread[addr] = thread
-        for addr in self.addr_to_thread:  # start thread
-            self.addr_to_thread[addr].start()
-        self.check_queue_thread = threading.Thread(target=self.check_queue, args=())
-        self.check_queue_thread.start()  # thread that check the queue and send one by one
-
-    def maintain_connection(self, addr):
-        conn = self.addr_to_conn[addr]
-        print('Connection %s has connected' % str(addr))
-        while True:
-            data = conn.recv(RECV_BUFF)
-            if not data:
-                print('disconnected with %s' % str(addr))
-                conn.close()
-                return
-            data = data.decode()
-            print(data)  # here needs to be add more functions
-
-    def check_queue(self):
-        while True:
-            dp = self.send_queue.get()
-            for addr in self.addr_to_conn:
-                self.send_data(dp.encode_data, self.addr_to_conn[addr])
-
-    def send_data(self, data, conn):
-        threading.Thread(target=self._send_data, args=(data, conn)).start()
-
-    def _send_data(self, data, conn):
-        try:
-            conn.sendall(data)
-            print('succeed send %s' % data)
-        except:
-            print('Sending %s error, data will be DROP!!' % data[0:10])
 
 
 thread = threading.Thread(target=main, args=())

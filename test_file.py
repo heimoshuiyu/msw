@@ -22,7 +22,7 @@ length: 3
 
 abc'''
 
-data_list = [data,data2,data3,data4]
+data_list = [data,data2,data3]
 code_list = []
 for i in data_list:
     code_list.append(i.encode())
@@ -32,4 +32,4 @@ s.connect(('127.0.0.1', 3900))
 
 for i in code_list:
     s.sendall(i)
-    time.sleep(0)
+    time.sleep(1)

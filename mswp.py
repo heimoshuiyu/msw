@@ -3,6 +3,8 @@ class Datapack:
         if head is None:
             head = {}
             self.head = head
+        else:
+            self.head = head
         self.method = method
         self.app = app
         self.version = version
