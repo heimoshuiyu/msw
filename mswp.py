@@ -1,11 +1,17 @@
+import os
+from config import jsondata
+
 class Datapack:
-    def __init__(self, method='post', app='all', version='msw/1.0', head=None, body=b'', check_head=True):
+    def __init__(self, method='post', app='all', version='msw/1.0', head=None, body=b'', check_head=True, file=None):
+        self.id = jsondata.try_to_read_jsondata('id', 'Unknown_id')
         if head is None:
             head = {}
             self.head = head
         else:
             self.head = head
+        self.head['id'] = self.id
         self.method = method
+        self.file = file
         self.app = app
         self.version = version
         if not self.head and check_head:
@@ -16,7 +22,11 @@ class Datapack:
         self.encode_data = b''
 
     def encode(self):
-        self.head['length'] = str(len(self.body))
+        if self.method == 'file':
+            self.head['length'] = str(os.path.getsize(self.head['filename']))
+        else:
+            self.head['length'] = str(len(self.body))
+
         first_line = self.method.encode() + b' ' + self.app.encode() + b' ' + self.version.encode()
         heads = ''.encode()
         for i in self.head:

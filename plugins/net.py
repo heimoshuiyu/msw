@@ -1,14 +1,14 @@
 import threading
 import socket
 import queue
-import copy
+import os
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
 from config import jsondata
 receive_queue = receive_queues[__name__]
 
 RECV_BUFF = jsondata.try_to_read_jsondata('recv_buff', 4096)
-
+ID = jsondata.try_to_read_jsondata('id', 'Unknown_ID')
 
 def main():
     netrecv = Netrecv()
@@ -52,8 +52,8 @@ class Netrecv:
         listen_num = jsondata.try_to_read_jsondata('listen_num', 39)
         s.listen(listen_num)
         self.s = s
-
-        self.connection_list = []  # [(conn, addr), (conn, addr)...]
+        self.stat = {}  # # # # #
+        self.connection_list = []  # [(conn, addr), (conn, addr)...] Very important
         self.connection_process_thread_list =[]
         self.un_enougth_list = []
         self.send_queue = queue.Queue()
@@ -62,10 +62,10 @@ class Netrecv:
         self.thread_check_send_queue = threading.Thread(target=self.check_send_queue, args=())
 
         ########################################
-        self.send_queue = queue.Queue()
-        raw_data = read_netlisttxt_file()
+
+        raw_data = read_netlisttxt_file()  # read file
         lines = raw_data.split('\n')
-        ips = []
+        self.file_addr_list = []
         for line in lines:
             ip_port = line.split(':')
             if len(ip_port) == 1:
@@ -77,43 +77,71 @@ class Netrecv:
                     port = 3900
             ip = process_hostname(ip_port[0])
             port = int(ip_port[1])
-            ips.append((ip, port))
+            self.file_addr_list.append((ip, port))
 
-        for addr in ips:  # Create connection
+        for addr in self.file_addr_list:  # Create connection
             conn = connect(addr)
             self.connection_list.append((conn, addr))
 
-        # create thread
-
-        self.check_queue_thread = threading.Thread(target=self.check_send_queue, args=())
-
-        self.send_queue_dist = {}
-
-        for addr in self.addr_to_thread:  # start thread
-            self.addr_to_thread[addr].start()
-        self.check_queue_thread.start()  # thread that check the queue and send one by one
-        self.thread_check_accept_connection.start()
-        self.thread_check_send_queue.start()
-
-    def check_accept_connection(self):
-        while True:
-            conn, addr = self.s.accept()
-            self.connection_list.append((conn, addr))
+            # Create receive thread and start
             connection_thread = threading.Thread(target=self.process_connection, args=(conn, addr))
             self.connection_process_thread_list.append(connection_thread)
             connection_thread.start()
 
-    def process_connection_send(self, conn, addr):
-        pass
+        self.thread_check_accept_connection.start()
+        self.thread_check_send_queue.start()
+
+    def check_send_queue(self):
+        while True:
+            dp = receive_queue.get()
+            if dp.method == 'file':
+                print('right')
+                print(dp.head)
+                dp.encode()
+                for id in self.stat:
+                    for conn, addr in self.stat[id]:
+                        conn.sendall(dp.encode_data)
+                        file = open(dp.head['filename'], 'rb')
+                        for data in file:
+                            conn.send(data)
+                            print('sended')
+
+            else:
+                print('wrong')
+                dp.encode()
+                for id in self.stat:
+                    for conn, addr in self.stat[id]:
+                        conn.sendall(dp.encode_data)
+
+    def check_accept_connection(self):
+        while True:
+            conn, addr = self.s.accept()
+            self.connection_list.append((conn, addr))  # # # # #
+            connection_thread = threading.Thread(target=self.process_connection, args=(conn, addr))
+            self.connection_process_thread_list.append(connection_thread)
+            connection_thread.start()
+
+    def remove_connection(self, conn, addr):
+        conn.close()
+        for id in self.stat:
+            if (conn, addr) in self.stat[id]:
+                self.stat[id].remove(conn, addr)
+        self.connection_list.remove((conn, addr))
+        print('Removed connection', str(addr))
 
     def process_connection(self, conn, addr):
-        print('Connection accpet %s' % str(addr))
+        print('Connection accept %s' % str(addr))
         data = b''
         while True:
-            new_data = conn.recv(RECV_BUFF)
+            try:
+                new_data = conn.recv(RECV_BUFF)
+            except ConnectionResetError:
+                print('Connection Reset Error')
+                self.remove_connection(conn, addr)
+                return
+
             if not new_data and not data:
-                conn.close()
-                self.connection_list.remove((conn, addr))
+                self.remove_connection(conn, addr)
                 print('return 1')
                 return
             data += new_data
@@ -187,7 +215,7 @@ class Netrecv:
                     dp.encode_data = b''
                     send_queue.put(dp)
 
-                else:  # dp.method is not 'file'
+                else:  # normal data pack
                     length = int(dp.head['length'])
                     data_length = len(data)
 
@@ -234,9 +262,21 @@ class Netrecv:
                         dp.body = data[:length]
                         data = data[length:]
 
-                    dp.encode()
-                    send_queue.put(dp)
-                    print('###############\n' + dp.encode_data.decode() + '\n###############')
+                    # net config data package
+                    if dp.app == 'net':
+                        dp_id = dp.head['id']
+                        local_id = self.stat.get(dp_id)
+
+                        if not local_id:  # create if not exits
+                            self.stat[dp_id] = []
+
+                        if not (conn, addr) in self.stat[dp_id]:
+                            self.stat[dp_id].append((conn, addr))
+
+                    else:
+                        dp.encode()
+                        send_queue.put(dp)
+                        print('###############\n' + dp.encode_data.decode() + '\n###############')
 
 
 thread = threading.Thread(target=main, args=())
