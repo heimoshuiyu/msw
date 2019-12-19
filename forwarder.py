@@ -36,7 +36,7 @@ def send_queue_function():
                 object_app, new_dp = process_reforware(new_dp)
                 receive_queues[add_plugins_string(object_app)].put(new_dp)
         else:
-            object_app, dp =process_reforware(dp)
+            object_app, dp = process_reforware(dp)
             receive_queues[add_plugins_string(object_app)].put(dp)
 
 

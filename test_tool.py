@@ -7,7 +7,7 @@ s.bind(('127.0.0.1', 3966))
 s.listen(100)
 
 id = '''post net msw/1.0
-id: miku
+id: miku2
 from: test
 length: 0
 
@@ -23,8 +23,13 @@ def process(conn, addr):
         if not data:
             conn.close()
             return
-        data = data.decode()
-        print(data)
+        try:
+            data = data.decode()
+            print(data)
+        except UnicodeDecodeError:
+            print('Decode error')
+            print(data[:39])
+
 
 
 while True:

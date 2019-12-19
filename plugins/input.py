@@ -7,9 +7,9 @@ receive_queue = receive_queues[__name__]
 
 
 def main():
-    file_flag = False;
+    file_flag = False
     while True:
-        file_flag = False;
+        file_flag = False
         raw_data = input()
 
         if raw_data[:6] == '(file)':
@@ -44,7 +44,10 @@ def find_the_last(indata):  # find the last ":" index
             break
     last_index = copy.copy(first_index)
     last_index += 1
-    while indata[last_index] == ' ':
+    try:
+        while indata[last_index] == ' ':
+            last_index += 1
+    except IndexError:
         last_index += 1
     return first_index, last_index
 

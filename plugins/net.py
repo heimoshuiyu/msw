@@ -94,6 +94,12 @@ class Netrecv:
     def check_send_queue(self):
         while True:
             dp = receive_queue.get()
+
+            # debug code
+            if dp.body == b'stat':
+                print(self.stat)
+                continue
+
             if dp.method == 'file':
                 print('right')
                 print(dp.head)
@@ -104,7 +110,7 @@ class Netrecv:
                         file = open(dp.head['filename'], 'rb')
                         for data in file:
                             conn.send(data)
-                            print('sended')
+                        print('sended')
 
             else:
                 print('wrong')
@@ -125,11 +131,20 @@ class Netrecv:
         conn.close()
         for id in self.stat:
             if (conn, addr) in self.stat[id]:
-                self.stat[id].remove(conn, addr)
+                self.stat[id].remove((conn, addr))
         self.connection_list.remove((conn, addr))
         print('Removed connection', str(addr))
 
+    def say_hello(self, conn, addr):
+        dp = Datapack(head={'from': __name__})
+        dp.app = 'net'
+        dp.encode()
+        conn.sendall(dp.encode_data)
+        print('hello package has been sent')
+
     def process_connection(self, conn, addr):
+        self.say_hello(conn, addr)
+
         print('Connection accept %s' % str(addr))
         data = b''
         while True:
@@ -163,6 +178,20 @@ class Netrecv:
                     print('Decode error %s: %s' % (type(e), str(e)))
                     break
                 # try unpack #
+
+                # net config data package
+                if dp.app == 'net':
+
+                    dp_id = dp.head['id']
+                    local_id = self.stat.get(dp_id)
+
+                    if not local_id:  # create if not exits
+                        self.stat[dp_id] = []
+
+                    if not (conn, addr) in self.stat[dp_id]:
+                        self.stat[dp_id].append((conn, addr))
+
+                    continue
 
                 if dp.method == 'file':
                     length = int(dp.head['length'])
@@ -262,21 +291,9 @@ class Netrecv:
                         dp.body = data[:length]
                         data = data[length:]
 
-                    # net config data package
-                    if dp.app == 'net':
-                        dp_id = dp.head['id']
-                        local_id = self.stat.get(dp_id)
-
-                        if not local_id:  # create if not exits
-                            self.stat[dp_id] = []
-
-                        if not (conn, addr) in self.stat[dp_id]:
-                            self.stat[dp_id].append((conn, addr))
-
-                    else:
-                        dp.encode()
-                        send_queue.put(dp)
-                        print('###############\n' + dp.encode_data.decode() + '\n###############')
+                    dp.encode()
+                    send_queue.put(dp)
+                    print('###############\n' + dp.encode_data.decode() + '\n###############')
 
 
 thread = threading.Thread(target=main, args=())
