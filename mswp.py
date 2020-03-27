@@ -1,15 +1,34 @@
 import os
 from config import jsondata
 
+'''
+A datapack must like:
+---------------------
+post log msw/1.0
+id: miku
+flag: 1a2b3c4d
+length: 0
+from: hatsune
+to: [if has]
+filename: [if has]
+
+[data content here
+if has
+support many lines...]
+---------------------
+'''
+
 class Datapack:
-    def __init__(self, method='post', app='all', version='msw/1.0', head=None, body=b'', check_head=True, file=None):
-        self.id = jsondata.try_to_read_jsondata('id', 'Unknown_id')
+    def __init__(self, method='post', app='all', version='msw/0.1', head=None, body=b'', 
+    check_head=True, file=None):
+        self.id = jsondata.try_to_read_jsondata('id', 'unknown_id')
         if head is None:
             head = {}
             self.head = head
         else:
             self.head = head
-        self.head['id'] = self.id
+        if self.id == 'unknown_id':
+            self.head['id'] = self.id
         self.method = method
         self.file = file
         self.app = app
@@ -49,6 +68,5 @@ class Datapack:
             self.head[i] = ii
         if only_head:
             return self.encode_data[index+2:]
-
-
-dp = Datapack()
+        else:
+            return None

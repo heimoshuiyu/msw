@@ -12,7 +12,7 @@ def main():
         file_flag = False
         raw_data = input()
 
-        if raw_data[:6] == '(file)':
+        if raw_data[:6] == '(file)': # like "(file)log: filename.exe"
             raw_data = raw_data[6:]
             file_flag = True
 
@@ -40,7 +40,7 @@ def find_the_last(indata):  # find the last ":" index
         try:
             next_index = indata[first_index+1:].index(':')
             first_index += next_index + 1
-        except Exception as e:
+        except:
             break
     last_index = copy.copy(first_index)
     last_index += 1

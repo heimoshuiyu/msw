@@ -1,7 +1,13 @@
 import socket
 import time
 
-data = '''file log msw/1.0
+data = '''post id msw/0.1
+id: miku
+length: 0
+from: test_software
+flag: 1a2b3c4d
+
+file log msw/1.0
 from: network
 flag: abcdefgh
 filename: download.txt
@@ -30,6 +36,9 @@ for i in data_list:
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect(('127.0.0.1', 3900))
 
+n=0
 for i in code_list:
+    n+=1
     s.sendall(i)
+    print('发送%s' % n)
     time.sleep(1)
