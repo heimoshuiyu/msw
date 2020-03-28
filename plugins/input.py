@@ -10,17 +10,26 @@ def main():
     file_flag = False
     while True:
         file_flag = False
+        net_flag = False
         raw_data = input()
 
         if raw_data[:6] == '(file)': # like "(file)log: filename.exe"
             raw_data = raw_data[6:]
             file_flag = True
 
+        if raw_data[:5] == '(net ': # like "(net miku)log: hello" or "(file)(net miku)log: filename.exe"
+            index = raw_data.index(')')
+            to = raw_data[5:index]
+            raw_data = raw_data[index+1:]
+            net_flag = True
+
         first_index, last_index = find_the_last(raw_data)
         app = raw_data[:first_index]
         body = raw_data[last_index:]
         app = app.replace(' ', '')
         dp = Datapack(head={'from': __name__})
+        if net_flag:
+            dp.head.update({'to': to})
         dp.app = app
 
         if file_flag:

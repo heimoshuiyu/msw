@@ -3,6 +3,7 @@ import socket
 import copy
 import queue
 import os
+import time
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
 from config import jsondata
@@ -10,12 +11,12 @@ receive_queue = receive_queues[__name__]
 
 BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
 ID = jsondata.try_to_read_jsondata('id', 'Unknown_ID')
+RETRYSLEEP = 5
 
 def main():
     network_controller = Network_controller()
-    network_controller.start_accpet_connection()
+    network_controller.i_did_something()
     
-
 
 class Network_controller: # manage id and connection
     def __init__(self):
@@ -23,10 +24,63 @@ class Network_controller: # manage id and connection
         self.id_dict = {}
         self.lock = threading.Lock()
         self.all_connection_list = []
+        self.wheel_queue = queue.Queue()
 
-        #self.start_accpet_connection_thread = threading.Thread(target=self.start_accpet_connection, args=())
-        #self.start_accpet_connection_thread.start()
+        self.start_wheel_thread = threading.Thread(target=self.start_wheel, args=())
+        self.start_wheel_thread.start()
+
+        self.start_accpet_connection_thread = threading.Thread(target=self.start_accpet_connection, args=())
+        self.start_accpet_connection_thread.start()
+
+        self.start_sending_dp_thread = threading.Thread(target=self.start_sending_dp, args=())
+        self.start_sending_dp_thread.start()
     
+
+    def i_did_something(self): # go f**k your yeallow line
+        pass
+
+
+    def process_command(self, dp):
+        if dp.body == b'status':
+            print('Online %s' % self.id_dict)
+
+    
+    def start_sending_dp(self):
+        while True:
+            dp = receive_queue.get()
+
+            if dp.app == 'net':
+                self.process_command(dp)
+                continue
+
+            to_str = dp.head['to']
+            to_list = to_str.split(':')
+            to = to_list.pop()
+
+            connections = self.id_dict.get(to)
+            if not connections:
+                if to == ID:
+                    print('To id %s is yourself!' % to)
+                    continue
+                print('To id %s has no connection now' % to)
+                self.wheel_queue.put(dp)
+                continue
+
+            to_str = ':'.join(to_list)
+            dp.head['to'] = to_str
+            dp.encode()
+
+            connection = connections[0]
+            connection.sendall(dp)
+
+
+    def start_wheel(self):
+        while True:
+            dp = self.wheel_queue.get()
+            time.sleep(RETRYSLEEP)
+            receive_queue.put(dp)
+
+
     def start_accpet_connection(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -46,23 +100,23 @@ class Network_controller: # manage id and connection
             self.all_connection_list.append(connection)
 
 
-    def set_connection(self, id, conn):
+    def set_connection(self, id, connection):
         with self.lock:
             if not self.id_dict.get(id):
                 self.id_dict[id] = []
-            self.id_dict[id].append(conn)
+            self.id_dict[id].append(connection)
+            self.all_connection_list.append(connection)
+            print('%s has connected' % id)
 
 
-    def del_connection(self, id, conn):
+    def del_connection(self, id, connection):
         with self.lock:
-            if id in self.id_dict:
-                if not self.id_dict.get(id): # if id has no connection
-                    del(self.id_dict[id])
-                else:
-                    self.id_dict[id].remove(conn)
-            self.all_connection_list.remove(conn)
+            self.id_dict[id].remove(connection)
+            self.all_connection_list.remove(connection)
+            if id in self.id_dict and not self.id_dict.get(id): # del the empty user
+                del(self.id_dict[id])
+            print('%s disconnected' % id)
 
-            
 
 class Connection:
     def __init__(self, conn, addr, netowrk_controller):
@@ -71,9 +125,12 @@ class Connection:
         self.netowrk_controller = netowrk_controller
         self.id = None
         self.buff = b''
+        self.padding_queue = queue.Queue()
 
-        self.thread = threading.Thread(target=self._init, args=())
-        self.thread.start()
+        self.thread_recv = threading.Thread(target=self._init, args=())
+        self.thread_recv.start()
+
+        self.thread_send = None
 
 
     def _init(self): # init to check connection id, threading
@@ -82,8 +139,11 @@ class Connection:
             print('Init connection failed, connection closed')
             self.conn.close()
 
-        self.netowrk_controller.set_connection(self.id, self.conn)
+        self.netowrk_controller.set_connection(self.id, self)
         
+        self.thread_send = threading.Thread(target=self.send_func, args=())
+        self.thread_send.start()
+
         self.receive()
 
 
@@ -91,8 +151,13 @@ class Connection:
         still_need = 0
 
         while True:
-            print(still_need)
-            data = self.conn.recv(BUFFSIZE)
+            try:
+                data = self.conn.recv(BUFFSIZE)
+            except ConnectionResetError:
+                break
+            except Exception as e:
+                print('Connection recv error %s: %s' % (type(e), str(e)))
+                break
             if not data:
                 break
             self.buff += data
@@ -129,21 +194,26 @@ class Connection:
                     dp.body += self.buff
                     still_need -= len(self.buff)
                 self.buff = b'' # empty buff because all tmp data has been write
-
+            
+            # bleow code are using to process datapack
+            send_queue.put(dp)
 
         
         # below code are using to closed connection
         self.conn.close()
+        self.netowrk_controller.del_connection(self.id, self)
 
         
     def check_id(self):
         '''
-        return code
-        0 ok
-        1 unknown id
-        2 connection closed
+        check id package must like
+        -------------------------------
+        post handshake msw/0.1
+        id: [yourID]
+        length: 0
+        
+        -------------------------------
         '''
-
         data = self.conn.recv(BUFFSIZE)
         if not data:
             return 2
@@ -157,8 +227,23 @@ class Connection:
         self.id = dp.head['id']
 
 
-    def sendall(self, data):
-        self.conn.sendall(data)
+    def sendall(self, dp):
+        self.padding_queue.put(dp)
+
+    
+    def send_func(self):
+        while True:
+            dp = self.padding_queue.get()
+            dp.encode()
+            if dp.method == 'file':
+                print('确认发送文件')
+                self.conn.sendall(dp.encode_data)
+                with open(dp.head['filename'], 'rb') as f:
+                    for data in f:
+                        print('开始发送文件内容')
+                        self.conn.sendall(data)
+            else:
+                self.conn.sendall(dp.encode_data)
 
 
 thread = threading.Thread(target=main, args=())

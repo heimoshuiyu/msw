@@ -25,8 +25,8 @@ def send_queue_function():
         if dp.app == 'all':
             for q in receive_queues:
                 receive_queues[q].put(dp)
-        elif ',' in dp.app:
-            applist = dp.app.split(',')
+        elif '&' in dp.app:
+            applist = dp.app.split('&')
             dp_list = []
             for i in range(len(applist)):  # split dp
                 new_dp = copy.copy(dp)
@@ -35,6 +35,8 @@ def send_queue_function():
             for new_dp in dp_list:
                 object_app, new_dp = process_reforware(new_dp)
                 receive_queues[add_plugins_string(object_app)].put(new_dp)
+        elif 'to' in dp.head: # send to net if "to" avaliable
+            receive_queues[add_plugins_string('net')].put(dp)
         else:
             object_app, dp = process_reforware(dp)
             receive_queues[add_plugins_string(object_app)].put(dp)

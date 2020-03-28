@@ -8,7 +8,7 @@ from: test_software
 flag: 1a2b3c4d
 
 file log msw/1.0
-from: network
+from: test
 flag: abcdefgh
 filename: download.txt
 num: 1/1

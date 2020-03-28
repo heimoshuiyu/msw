@@ -5,11 +5,11 @@ from config import jsondata
 A datapack must like:
 ---------------------
 post log msw/1.0
-id: miku
-flag: 1a2b3c4d
-length: 0
-from: hatsune
-to: [if has]
+id: miku [auto]
+flag: 1a2b3c4d [auto]
+length: 0 [auto]
+from: appname
+to: [if has (net id)]
 filename: [if has]
 
 [data content here
@@ -17,6 +17,8 @@ if has
 support many lines...]
 ---------------------
 '''
+
+BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
 
 class Datapack:
     def __init__(self, method='post', app='all', version='msw/0.1', head=None, body=b'', 
@@ -42,12 +44,19 @@ class Datapack:
 
     def encode(self):
         if self.method == 'file':
+            self.body = b''
             self.head['length'] = str(os.path.getsize(self.head['filename']))
         else:
             self.head['length'] = str(len(self.body))
 
         first_line = self.method.encode() + b' ' + self.app.encode() + b' ' + self.version.encode()
         heads = ''.encode()
+        needed_to_del = []
+        for i in self.head: # del the empty head
+            if not self.head[i]:
+                needed_to_del.append(i)
+        for i in needed_to_del:
+            del(self.head[i])
         for i in self.head:
             heads += i.encode() + b': ' + self.head[i].encode() + b'\n'
         self.encode_data = first_line + b'\n' + heads + b'\n' + self.body
