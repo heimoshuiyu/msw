@@ -1,6 +1,7 @@
 import threading
 import json
 import time
+import queue
 
 
 class Jsondata:
@@ -11,7 +12,7 @@ class Jsondata:
         self.raw_jsondata = jsondata
         self.auto_save = auto_save
         self.auto_save_time = auto_save_time
-        self.thread = threading.Thread(target=self.run, args=())
+        self.thread = threading.Thread(target=self.run, args=(), daemon=True)
         self.thread.start()
 
     def try_to_read_jsondata(self, key, or_value, template=0, output=True):
@@ -36,5 +37,6 @@ class Jsondata:
             if self.auto_save:
                 pass
 
-global_config = {}  
+global_config = {}
+msw_queue = queue.Queue()
 jsondata = Jsondata()

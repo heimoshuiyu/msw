@@ -4,9 +4,9 @@ PATH = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(PATH)
 os.chdir(PATH)
 
-from mswp import Datapack
 import threading
-from config import jsondata, global_config
+from mswp import Datapack
+from config import jsondata, global_config, msw_queue
 
 
 print('Building plugins import script...')
@@ -36,3 +36,6 @@ import plugins
 print('Plugins import finished')
 
 
+# restart
+code = msw_queue.get()
+sys.exit(code)

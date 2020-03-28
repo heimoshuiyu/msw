@@ -70,5 +70,5 @@ class Compresser:
         return filelist
 
 
-thread = threading.Thread(target=main, args=())
+thread = threading.Thread(target=main, args=(), daemon=True)
 thread.start()

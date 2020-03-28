@@ -1,5 +1,8 @@
 import os
+import random
+import hashlib
 from config import jsondata
+
 
 '''
 A datapack must like:
@@ -22,7 +25,7 @@ BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
 
 class Datapack:
     def __init__(self, method='post', app='all', version='msw/0.1', head=None, body=b'', 
-    check_head=True, file=None):
+    check_head=True, file=None, gen_flag=True):
         self.id = jsondata.try_to_read_jsondata('id', 'unknown_id')
         if head is None:
             head = {}
@@ -41,6 +44,11 @@ class Datapack:
             self.head = head
         self.body = body
         self.encode_data = b''
+        if gen_flag:
+            randseed = str(random.random()).encode()
+            h = hashlib.blake2b(digest_size = 4)
+            h.update(randseed)
+            self.head['flag'] = h.hexdigest()
 
     def encode(self):
         if self.method == 'file':

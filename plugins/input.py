@@ -3,15 +3,31 @@ import copy
 import os
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
+from config import msw_queue
 receive_queue = receive_queues[__name__]
 
 
 def main():
+    while True:
+        try:
+            _main()
+        except Exception as e:
+            print('Error in %s, %s: %s' % (__name__, type(e), str(e)))
+
+
+def _main():
     file_flag = False
     while True:
         file_flag = False
         net_flag = False
         raw_data = input()
+
+        if raw_data == 'restart':
+            msw_queue.put(0)
+            break
+        if raw_data == 'exit':
+            msw_queue.put(1)
+            break
 
         if raw_data[:6] == '(file)': # like "(file)log: filename.exe"
             raw_data = raw_data[6:]
@@ -61,5 +77,5 @@ def find_the_last(indata):  # find the last ":" index
     return first_index, last_index
 
 
-thread = threading.Thread(target=main, args=())
+thread = threading.Thread(target=main, args=(), daemon=True)
 thread.start()

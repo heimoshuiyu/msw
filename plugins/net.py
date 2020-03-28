@@ -26,13 +26,13 @@ class Network_controller: # manage id and connection
         self.all_connection_list = []
         self.wheel_queue = queue.Queue()
 
-        self.start_wheel_thread = threading.Thread(target=self.start_wheel, args=())
+        self.start_wheel_thread = threading.Thread(target=self.start_wheel, args=(), daemon=True)
         self.start_wheel_thread.start()
 
-        self.start_accpet_connection_thread = threading.Thread(target=self.start_accpet_connection, args=())
+        self.start_accpet_connection_thread = threading.Thread(target=self.start_accpet_connection, args=(), daemon=True)
         self.start_accpet_connection_thread.start()
 
-        self.start_sending_dp_thread = threading.Thread(target=self.start_sending_dp, args=())
+        self.start_sending_dp_thread = threading.Thread(target=self.start_sending_dp, args=(), daemon=True)
         self.start_sending_dp_thread.start()
     
 
@@ -127,21 +127,21 @@ class Connection:
         self.buff = b''
         self.padding_queue = queue.Queue()
 
-        self.thread_recv = threading.Thread(target=self._init, args=())
+        self.thread_recv = threading.Thread(target=self._init, args=(), daemon=True)
         self.thread_recv.start()
 
         self.thread_send = None
 
 
     def _init(self): # init to check connection id, threading
-        err_code = self.check_id()
+        err_code, flag = self.check_id()
         if err_code:
-            print('Init connection failed, connection closed')
+            print('<%s> Init connection failed, connection closed, code: %s' % (flag, err_code))
             self.conn.close()
 
         self.netowrk_controller.set_connection(self.id, self)
         
-        self.thread_send = threading.Thread(target=self.send_func, args=())
+        self.thread_send = threading.Thread(target=self.send_func, args=(), daemon=True)
         self.thread_send.start()
 
         self.receive()
@@ -213,18 +213,28 @@ class Connection:
         length: 0
         
         -------------------------------
+        error code list:
+        1: not get "id" in head
+        2: receive data failed
+        3: appname is not handshake
         '''
         data = self.conn.recv(BUFFSIZE)
         if not data:
-            return 2
+            return 2, ''
 
         self.buff += data
         dp = Datapack()
         dp.encode_data = self.buff # maybe here needs to use copy.copy(self.buff)
         self.buff = dp.decode(only_head=True)
         if not dp.head.get('id'):
-            return 1
+            return 1, dp.head.get('flag')
+
+        if not dp.app == 'handshake':
+            return 3, dp.head.get('flag')
+
         self.id = dp.head['id']
+
+        return 0, dp.head.get('flag')
 
 
     def sendall(self, dp):
@@ -246,5 +256,5 @@ class Connection:
                 self.conn.sendall(dp.encode_data)
 
 
-thread = threading.Thread(target=main, args=())
+thread = threading.Thread(target=main, args=(), daemon=True)
 thread.start()

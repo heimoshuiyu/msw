@@ -14,6 +14,6 @@ def main():
                 from_app_name = 'Unknown'
             f.write(from_app_name + ': ' + dp.body.decode() + '\n')
 
-thread = threading.Thread(target=main, args=())
+thread = threading.Thread(target=main, args=(), daemon=True)
 thread.start()
 

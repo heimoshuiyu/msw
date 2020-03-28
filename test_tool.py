@@ -6,6 +6,7 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 id = b'''post handshake msw/1.0
 id: miku2
 length: 0
+flag: ee20aeff
 
 '''
 

@@ -51,5 +51,5 @@ def process_reforware(dp):
         return dp.app, dp
 
 
-thread = threading.Thread(target=send_queue_function, args=())
+thread = threading.Thread(target=send_queue_function, args=(), daemon=True)
 thread.start()
