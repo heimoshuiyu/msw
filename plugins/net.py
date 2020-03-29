@@ -16,7 +16,8 @@ RETRYSLEEP = 5
 def main():
     network_controller = Network_controller()
     network_controller.i_did_something()
-    
+
+
 
 class Network_controller: # manage id and connection
     def __init__(self):
@@ -26,6 +27,11 @@ class Network_controller: # manage id and connection
         self.all_connection_list = []
         self.wheel_queue = queue.Queue()
 
+        self.netlist = [] # store nagetive connection
+        self.addrlist = [] # store config connection
+        self.dhtlist = [] # store exchanged connection
+        self.proxylist = [] # store connection behind proxy
+
         self.start_wheel_thread = threading.Thread(target=self.start_wheel, args=(), daemon=True)
         self.start_wheel_thread.start()
 
@@ -34,6 +40,39 @@ class Network_controller: # manage id and connection
 
         self.start_sending_dp_thread = threading.Thread(target=self.start_sending_dp, args=(), daemon=True)
         self.start_sending_dp_thread.start()
+
+        self.start_positive_connecting_thread = threading.Thread(target=self.start_positive_connecting, args=(), daemon=True)
+        self.start_positive_connecting_thread.start()
+
+    
+    def start_positive_connecting(self):
+        self.read_addrlist()
+        for addr in self.addrlist:
+            self.try_to_connect(addr)
+        
+
+
+    def try_to_connect(self, addr):
+        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.connect(addr)
+        connection = Connection(conn, addr, self, positive=True)
+        connection.i_did_something()
+
+
+
+    def read_addrlist(self):
+        if not os.path.exists('addrlist.txt'):
+            print('addrlist.txt not exists, config that base on addrlist_sample.txt')
+        else:
+            with open('addrlist.txt', 'r') as f:
+                raw_data = f.read()
+            raw_data = raw_data.replace('\r', '')
+            lines = raw_data.split('\n')
+            for line in lines:
+                ip, port = line.split(':')
+                port = int(port)
+
+                self.addrlist.append((ip, port))
     
 
     def i_did_something(self): # go f**k your yeallow line
@@ -96,8 +135,7 @@ class Network_controller: # manage id and connection
         while True:
             conn, addr = s.accept()
             connection = Connection(conn, addr, self)
-
-            self.all_connection_list.append(connection)
+            connection.i_did_something()
 
 
     def set_connection(self, id, connection):
@@ -119,18 +157,19 @@ class Network_controller: # manage id and connection
 
 
 class Connection:
-    def __init__(self, conn, addr, netowrk_controller):
+    def __init__(self, conn, addr, netowrk_controller, positive=False):
         self.conn = conn
         self.addr = addr
         self.netowrk_controller = netowrk_controller
         self.id = None
         self.buff = b''
         self.padding_queue = queue.Queue()
+        self.thread_send = None
+        self.positive = positive
 
         self.thread_recv = threading.Thread(target=self._init, args=(), daemon=True)
         self.thread_recv.start()
 
-        self.thread_send = None
 
 
     def _init(self): # init to check connection id, threading
@@ -218,6 +257,13 @@ class Connection:
         2: receive data failed
         3: appname is not handshake
         '''
+        if self.positive:
+            ndp = Datapack(head={'from': __name__})
+            ndp.app = 'handshake'
+            ndp.encode()
+            print(ndp.encode_data.decode())
+            self.conn.sendall(ndp.encode_data)
+
         data = self.conn.recv(BUFFSIZE)
         if not data:
             return 2, ''
@@ -246,14 +292,16 @@ class Connection:
             dp = self.padding_queue.get()
             dp.encode()
             if dp.method == 'file':
-                print('确认发送文件')
                 self.conn.sendall(dp.encode_data)
                 with open(dp.head['filename'], 'rb') as f:
                     for data in f:
-                        print('开始发送文件内容')
                         self.conn.sendall(data)
             else:
                 self.conn.sendall(dp.encode_data)
+
+    
+    def i_did_something(self):
+        pass
 
 
 thread = threading.Thread(target=main, args=(), daemon=True)

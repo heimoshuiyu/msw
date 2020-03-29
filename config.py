@@ -2,6 +2,24 @@ import threading
 import json
 import time
 import queue
+import os
+
+        
+class Print_controller:
+    def __init__(self):
+        self.padding_queue = queue.Queue()
+        self.thread = threading.Thread(target=self.start_printing, args=(), daemon=True)
+        self.original_print = print
+    
+    def start_printing(self):
+        while True:
+            word = self.padding_queue.get()
+            print(word)
+        
+    def print_function(self, word, dp=None):
+        if dp:
+            word = '<%s> %s' % (dp.head.get('flag'), word)
+        self.padding_queue.put(word)
 
 
 class Jsondata:
@@ -40,3 +58,6 @@ class Jsondata:
 global_config = {}
 msw_queue = queue.Queue()
 jsondata = Jsondata()
+
+print_controller = Print_controller()
+print = print_controller.print_function

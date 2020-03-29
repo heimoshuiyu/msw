@@ -25,23 +25,16 @@ BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
 
 class Datapack:
     def __init__(self, method='post', app='all', version='msw/0.1', head=None, body=b'', 
-    check_head=True, file=None, gen_flag=True):
+    file=None, gen_flag=True):
         self.id = jsondata.try_to_read_jsondata('id', 'unknown_id')
         if head is None:
             head = {}
-            self.head = head
-        else:
-            self.head = head
-        if self.id == 'unknown_id':
-            self.head['id'] = self.id
+        self.head = head
+        self.head['id'] = self.id
         self.method = method
         self.file = file
         self.app = app
         self.version = version
-        if not self.head and check_head:
-            self.head = {'nohead': "true"}
-        else:
-            self.head = head
         self.body = body
         self.encode_data = b''
         if gen_flag:

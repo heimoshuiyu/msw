@@ -7,7 +7,7 @@ receive_queue = receive_queues[__name__]
 
 
 remove_file_list = ['__init__.py', 'netlist.txt', 'config.json', 'logger.log']
-remove_dir_list = ['.git', '.idea', '__pycache__']
+remove_dir_list = ['.git', '.idea', '__pycache__', 'resources']
 
 
 def main():
@@ -16,27 +16,27 @@ def main():
 
         if dp.method == 'post':
             if dp.body == b'compress':
+                # compressing file
                 print('Starting update')
                 compress = Compresser()
-                filelist = compress.get_filelist()
-                compress.compress_files(filelist)
+                compress.start_compress()
                 print('Compress finished')
+                
+                # getting to destination
+                to = dp.head.get('update_to')
+                if not to:
+                    print('unable to locate update_to')
+                    continue
 
-            elif dp.body == b'all':
-                print('Start update other client')
-                compress = Compresser()
-                filelist = compress.get_filelist()
-                compress.compress_files(filelist)
-                print('Compress finished')
+                # sending file
+                ndp = Datapack(head={'from':__name__})
+                ndp.method = 'file'
+                ndp.app = 'update'
+                ndp.head['filename'] = 'resources/update.tar.xz'
+                ndp.head['to'] = to
 
-                dp = Datapack(head={'from': __name__})
-                dp.method = 'file'
-                dp.app = 'net:update'
-                dp.head['filename'] = 'resources/update.tar.xz'
+                send_queue.put(ndp)
 
-                dp.encode()
-
-                send_queue.put(dp)
 
         elif dp.method == 'file':
             print('Starting update local file')
@@ -48,6 +48,10 @@ def main():
 class Compresser:
     def __init__(self):
         self.filelist = []
+
+    def start_compress(self):
+        self.filelist = self.get_filelist()
+        self.compress_files(self.filelist)
 
     def compress_files(self, filelist):
         with tarfile.open('resources/update.tar.xz', 'w:xz') as f:

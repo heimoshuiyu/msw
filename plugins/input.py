@@ -39,13 +39,28 @@ def _main():
             raw_data = raw_data[index+1:]
             net_flag = True
 
-        first_index, last_index = find_the_last(raw_data)
+        first_index, last_index = find_index(raw_data)
         app = raw_data[:first_index]
         body = raw_data[last_index:]
+
+        ihead = {}
+        if ';' in body and ':' in body:
+            ihead_index = body.index(';')
+            ihead_str = body[ihead_index+1:]
+            body = body[:ihead_index]
+
+            ihead_list = ihead_str.split(',')
+            for key_value in ihead_list:
+                key, value = key_value.split(':')
+                ihead[key] = value
+
         app = app.replace(' ', '')
         dp = Datapack(head={'from': __name__})
         if net_flag:
             dp.head.update({'to': to})
+
+        dp.head.update(ihead)
+
         dp.app = app
 
         if file_flag:
@@ -59,20 +74,10 @@ def _main():
         send_queue.put(dp)
 
 
-def find_the_last(indata):  # find the last ":" index
-    first_index = indata.index(':')
-    while True:
-        try:
-            next_index = indata[first_index+1:].index(':')
-            first_index += next_index + 1
-        except:
-            break
-    last_index = copy.copy(first_index)
-    last_index += 1
-    try:
-        while indata[last_index] == ' ':
-            last_index += 1
-    except IndexError:
+def find_index(raw_data):
+    first_index = raw_data.index(':')
+    last_index = first_index + 1
+    while raw_data[last_index] == ' ':
         last_index += 1
     return first_index, last_index
 

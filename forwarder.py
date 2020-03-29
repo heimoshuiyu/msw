@@ -43,8 +43,8 @@ def send_queue_function():
 
 
 def process_reforware(dp):
-    if ':' in dp.app:
-        first_forward, next_forward = dp.app.split(':')
+    if '&' in dp.app:
+        first_forward, next_forward = dp.app.split('&')
         dp.app = next_forward
         return first_forward, dp
     else:
