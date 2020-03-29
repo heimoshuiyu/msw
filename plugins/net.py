@@ -82,7 +82,7 @@ class Network_controller: # manage id and connection
 
     def process_command(self, dp):
         if dp.body == b'status':
-            print('Online %s' % self.id_dict)
+            print('Online %s' % str(list(self.id_dict.keys())))
 
     
     def start_sending_dp(self):
@@ -145,7 +145,7 @@ class Network_controller: # manage id and connection
                 self.id_dict[id] = []
             self.id_dict[id].append(connection)
             self.all_connection_list.append(connection)
-            print('%s has connected' % id)
+            print('%s connected' % id)
 
 
     def del_connection(self, id, connection):
@@ -170,7 +170,6 @@ class Connection:
 
         self.thread_recv = threading.Thread(target=self._init, args=(), daemon=True)
         self.thread_recv.start()
-
 
 
     def _init(self): # init to check connection id, threading
@@ -264,8 +263,11 @@ class Connection:
         '''
         if self.positive:
             self.send_id()
+        try:
+            data = self.conn.recv(BUFFSIZE)
+        except ConnectionResetError:
+            print('One connection failed before ID check')
 
-        data = self.conn.recv(BUFFSIZE)
         if not data:
             return 2, ''
 

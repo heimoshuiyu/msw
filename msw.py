@@ -27,7 +27,7 @@ for name in plugins_list:
 with open('plugins/__init__.py', 'w') as f:
     f.write(plugins_import_script)
 print('%s plugins will be import' % (len(plugins_realname_list)))
-print('They are: %s' % str(plugins_realname_list))
+print('Plugins list: %s' % str(plugins_realname_list))
 
 
 global_config['plugins_realname_list'] = plugins_realname_list
