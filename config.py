@@ -8,8 +8,10 @@ import os
 class Print_controller:
     def __init__(self):
         self.padding_queue = queue.Queue()
-        self.thread = threading.Thread(target=self.start_printing, args=(), daemon=True)
         self.original_print = print
+
+        self.thread = threading.Thread(target=self.start_printing, args=(), daemon=True)
+        self.thread.start()
     
     def start_printing(self):
         while True:
@@ -60,4 +62,4 @@ msw_queue = queue.Queue()
 jsondata = Jsondata()
 
 print_controller = Print_controller()
-print = print_controller.print_function
+dprint = print_controller.print_function

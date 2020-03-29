@@ -3,10 +3,11 @@ import tarfile
 import os
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
+from config import msw_queue
 receive_queue = receive_queues[__name__]
 
 
-remove_file_list = ['__init__.py', 'netlist.txt', 'config.json', 'logger.log']
+remove_file_list = ['__init__.py', 'addrlist.txt', 'config.json', 'logger.log']
 remove_dir_list = ['.git', '.idea', '__pycache__', 'resources']
 
 
@@ -42,6 +43,8 @@ def main():
             print('Starting update local file')
             with tarfile.open(dp.head['filename'], 'r:xz') as f:
                 f.extractall()
+            #os.remove(dp.head['filename'])
+            msw_queue.put(0)
 
 
 

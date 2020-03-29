@@ -7,6 +7,7 @@ import time
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
 from config import jsondata
+from config import dprint as print
 receive_queue = receive_queues[__name__]
 
 BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
@@ -217,15 +218,8 @@ class Connection:
                 length = int(dp.head.get('length'))
                 still_need = length
             
-            if still_need <= len(self.buff): # first download complete setuation
-                if dp.method == 'file':
-                    with open(dp.head['filename'], 'ab') as f:
-                        f.write(self.buff[:still_need])
-                else:
-                    dp.body = self.buff[:still_need]
-                    self.buff = self.buff[still_need:]
-                still_need = 0
-            else: # writing tmp data
+            if still_need > len(self.buff):
+                # writing tmp data
                 if dp.method == 'file':
                     with open(dp.head['filename'], 'ab') as f:
                         still_need -= f.write(self.buff)
@@ -233,9 +227,20 @@ class Connection:
                     dp.body += self.buff
                     still_need -= len(self.buff)
                 self.buff = b'' # empty buff because all tmp data has been write
+
+            else: # download complete setuation
+                if dp.method == 'file':
+                    with open(dp.head['filename'], 'ab') as f:
+                        f.write(self.buff[:still_need])
+                else:
+                    dp.body = self.buff[:still_need]
+                    self.buff = self.buff[still_need:]
+                still_need = 0
             
-            # bleow code are using to process datapack
-            send_queue.put(dp)
+                # bleow code are using to process datapack
+                if dp.method == 'file':
+                    print('Received file %s' % dp.head['filename'], dp)
+                send_queue.put(dp)
 
         
         # below code are using to closed connection
@@ -258,11 +263,7 @@ class Connection:
         3: appname is not handshake
         '''
         if self.positive:
-            ndp = Datapack(head={'from': __name__})
-            ndp.app = 'handshake'
-            ndp.encode()
-            print(ndp.encode_data.decode())
-            self.conn.sendall(ndp.encode_data)
+            self.send_id()
 
         data = self.conn.recv(BUFFSIZE)
         if not data:
@@ -280,7 +281,17 @@ class Connection:
 
         self.id = dp.head['id']
 
+        if not self.positive:
+            self.send_id()
+
         return 0, dp.head.get('flag')
+
+    
+    def send_id(self):
+        dp = Datapack(head={'from': __name__})
+        dp.app = 'handshake'
+        dp.encode()
+        self.conn.sendall(dp.encode_data)
 
 
     def sendall(self, dp):
