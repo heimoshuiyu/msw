@@ -2,6 +2,7 @@ import threading
 import socket
 import copy
 import queue
+import json
 import os
 import time
 from mswp import Datapack
@@ -56,6 +57,8 @@ class Network_controller: # manage id and connection
             dp.app = 'net'
             dp.method = 'get'
             dp.body = b'mht'
+
+            print('Send mht request', dp)
             
             send_queue.put(dp)
 
@@ -102,9 +105,24 @@ class Network_controller: # manage id and connection
     def process_command(self, dp):
         if dp.body == b'status':
             print('Online %s' % str(list(self.id_dict.keys())))
-        elif dp.body == b'mht':
+        elif dp.body == b'mht' and dp.method == 'get':
             ndp = dp.reply()
+
+            connection_list = []
+            with self.lock:
+                for id in self.id_dict:
+                    connections = self.id_dict[id]
+                    for connection in connections:
+                        ip, port = connection.conn.getpeername()
+                        listen_port = connection.listen_port
+                        connection_list.append((ip, listen_port))
             
+            ndp.body = json.dumps(connection_list).encode()
+
+            send_queue.put(ndp)
+
+        else:
+            print('Received unknown command', dp)
 
     
     def start_sending_dp(self):
@@ -194,6 +212,7 @@ class Connection:
         self.padding_queue = queue.Queue()
         self.thread_send = None
         self.positive = positive
+        self.listen_port = None
 
         self.thread_recv = threading.Thread(target=self._init, args=(), daemon=True)
         self.thread_recv.start()
@@ -280,6 +299,7 @@ class Connection:
         -------------------------------
         post handshake msw/0.1
         id: [yourID]
+        listen_port: [3900]
         length: 0
         
         -------------------------------
@@ -311,6 +331,7 @@ class Connection:
             return 3, dp.head.get('flag')
 
         self.id = dp.head['id']
+        self.listen_port = dp.head.get('listen_port')
 
         if self.id == jsondata.try_to_read_jsondata('id', 'unknown_id'):
             print('you connect to your self')
@@ -325,6 +346,7 @@ class Connection:
     def send_id(self):
         dp = Datapack(head={'from': __name__})
         dp.app = 'handshake'
+        dp.head['listen_port'] = str(jsondata.try_to_read_jsondata('listen_port', 3900))
         dp.encode()
         self.conn.sendall(dp.encode_data)
 

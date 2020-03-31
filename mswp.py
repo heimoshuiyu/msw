@@ -27,11 +27,11 @@ support many lines...]
 '''
 
 BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
-
+ID = jsondata.try_to_read_jsondata('id', 'unknown_id')
 class Datapack:
     def __init__(self, method='post', app='all', version='msw/0.1', head=None, body=b'', 
     file=None, gen_flag=True):
-        self.id = jsondata.try_to_read_jsondata('id', 'unknown_id')
+        self.id = ID
         if head is None:
             head = {}
         self.head = head
@@ -93,15 +93,14 @@ class Datapack:
         ndp = copy.copy(self)
         ndp.app = ndp.head['from']
         ndp.method = 'reply'
-        ndp.head['to'] = ndp.id
-        ndp.id = self.id
+        ndp.head['to'] = self.head['id']
+        ndp.id = ID
         return ndp
         
 
 def process_plugins_name(name):
-    if 'plugins/' in name and '.py' in name:
-        name = name.replace('plugins/', '')
-        name = name.replace('.py', '')
+    if 'plugins.' in name:
+        name = name.replace('plugins.', '')
         return name
     else:
         return name
