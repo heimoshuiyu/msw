@@ -45,6 +45,22 @@ class Network_controller: # manage id and connection
         self.start_positive_connecting_thread = threading.Thread(target=self.start_positive_connecting, args=(), daemon=True)
         self.start_positive_connecting_thread.start()
 
+        self.start_mht_thread = threading.Thread(target=self.start_mht, args=(), daemon=True)
+        self.start_mht_thread.start()
+
+    
+    def start_mht(self):
+        while True:
+            dp = Datapack(head={'from': __name__})
+            dp.head['to'] = '*'
+            dp.app = 'net'
+            dp.method = 'get'
+            dp.body = b'mht'
+            
+            send_queue.put(dp)
+
+            time.sleep(10)
+            
     
     def start_positive_connecting(self):
         self.read_addrlist()
@@ -52,13 +68,16 @@ class Network_controller: # manage id and connection
             self.try_to_connect(addr)
         
 
-
     def try_to_connect(self, addr):
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        conn.connect(addr)
+        try:
+            conn.connect(addr)
+        except Exception as e:
+            print('Connect to %s failed, %s: %s' % (str(addr), type(e), str(e)))
+            return
+
         connection = Connection(conn, addr, self, positive=True)
         connection.i_did_something()
-
 
 
     def read_addrlist(self):
@@ -83,35 +102,43 @@ class Network_controller: # manage id and connection
     def process_command(self, dp):
         if dp.body == b'status':
             print('Online %s' % str(list(self.id_dict.keys())))
+        elif dp.body == b'mht':
+            ndp = dp.reply()
+            
 
     
     def start_sending_dp(self):
         while True:
             dp = receive_queue.get()
 
-            if dp.app == 'net':
+            if dp.app == 'net' and not dp.head.get('to'):
                 self.process_command(dp)
                 continue
-
+            
             to_str = dp.head['to']
-            to_list = to_str.split(':')
-            to = to_list.pop()
-
-            connections = self.id_dict.get(to)
-            if not connections:
-                if to == ID:
-                    print('To id %s is yourself!' % to)
-                    continue
-                print('To id %s has no connection now' % to)
-                self.wheel_queue.put(dp)
-                continue
-
-            to_str = ':'.join(to_list)
+            to_list = to_str.split('&')
+            to = to_list.pop(0)
+            to_str = '&'.join(to_list)
             dp.head['to'] = to_str
-            dp.encode()
-
-            connection = connections[0]
-            connection.sendall(dp)
+            
+            if to == '*':
+                with self.lock:
+                    for id in self.id_dict:
+                        connection = self.id_dict[id][0]
+                        connection.sendall(dp)
+            
+            else:            
+                connections = self.id_dict.get(to)
+                if not connections:
+                    if to == ID:
+                        print('To id %s is yourself!' % to, dp)
+                        continue
+                    print('To id %s has no connection now' % to, dp)
+                    self.wheel_queue.put(dp)
+                    continue
+                
+                connection = connections[0]
+                connection.sendall(dp)
 
 
     def start_wheel(self):
@@ -260,7 +287,9 @@ class Connection:
         1: not get "id" in head
         2: receive data failed
         3: appname is not handshake
+        4: id is yourself
         '''
+        data = None
         if self.positive:
             self.send_id()
         try:
@@ -282,6 +311,10 @@ class Connection:
             return 3, dp.head.get('flag')
 
         self.id = dp.head['id']
+
+        if self.id == jsondata.try_to_read_jsondata('id', 'unknown_id'):
+            print('you connect to your self')
+            return 4, dp.head.get('flag')
 
         if not self.positive:
             self.send_id()

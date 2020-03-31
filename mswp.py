@@ -1,10 +1,15 @@
 import os
 import random
 import hashlib
+import copy
 from config import jsondata
 
 
 '''
+Avaliable method are
+    post: used to send data, no needs to reply (deafult)
+    get: used to send data, but needs to reply
+    reply: used to reply "get" method
 A datapack must like:
 ---------------------
 post log msw/1.0
@@ -37,6 +42,8 @@ class Datapack:
         self.version = version
         self.body = body
         self.encode_data = b''
+        if self.head.get('from'):
+            self.head['from'] = process_plugins_name(self.head['from'])
         if gen_flag:
             randseed = str(random.random()).encode()
             h = hashlib.blake2b(digest_size = 4)
@@ -80,3 +87,21 @@ class Datapack:
             return self.encode_data[index+2:]
         else:
             return None
+        
+
+    def reply(self):
+        ndp = copy.copy(self)
+        ndp.app = ndp.head['from']
+        ndp.method = 'reply'
+        ndp.head['to'] = ndp.id
+        ndp.id = self.id
+        return ndp
+        
+
+def process_plugins_name(name):
+    if 'plugins/' in name and '.py' in name:
+        name = name.replace('plugins/', '')
+        name = name.replace('.py', '')
+        return name
+    else:
+        return name

@@ -44,6 +44,8 @@ def main():
             with tarfile.open(dp.head['filename'], 'r:xz') as f:
                 f.extractall()
             #os.remove(dp.head['filename'])
+
+            # restart msw program
             msw_queue.put(0)
 
 
