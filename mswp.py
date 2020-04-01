@@ -46,9 +46,9 @@ class Datapack:
             self.head['from'] = process_plugins_name(self.head['from'])
         if gen_flag:
             randseed = str(random.random()).encode()
-            h = hashlib.blake2b(digest_size = 4)
+            h = hashlib.sha1()
             h.update(randseed)
-            self.head['flag'] = h.hexdigest()
+            self.head['flag'] = h.hexdigest()[:8]
 
     def encode(self):
         if self.method == 'file':
