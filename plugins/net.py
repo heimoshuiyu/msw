@@ -20,7 +20,6 @@ def main():
     network_controller.i_did_something()
 
 
-
 class Network_controller: # manage id and connection
     def __init__(self):
         self.send_queue = queue.Queue()
@@ -30,9 +29,13 @@ class Network_controller: # manage id and connection
         self.wheel_queue = queue.Queue()
 
         self.netlist = [] # store nagetive connection
-        self.addrlist = [] # store config connection
-        self.dhtlist = [] # store exchanged connection
+        self.netlist_pass = []
+        self.conflist = [] # store config connection
+        self.conflist_pass = []
+        self.mhtlist = [] # store exchanged connection
+        self.mhtlist_pass = []
         self.proxylist = [] # store connection behind proxy
+        self.proxylist_pass = []
 
         self.start_wheel_thread = threading.Thread(target=self.start_wheel, args=(), daemon=True)
         self.start_wheel_thread.start()
@@ -67,11 +70,22 @@ class Network_controller: # manage id and connection
     
     def start_positive_connecting(self):
         self.read_addrlist()
-        for addr in self.addrlist:
-            self.try_to_connect(addr)
+
+        while True:
+            for addr in self.conflist:
+                self.try_to_connect(addr, conntype='normal')
+            
+            time.sleep(3)
+
+            for addr in self.mhtlist:
+                self.try_to_connect(addr, conntype='mht')
+
+            time.sleep(3)
+
+            time.sleep(4)
         
 
-    def try_to_connect(self, addr):
+    def try_to_connect(self, addr, conntype='normal'):
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             conn.connect(addr)
@@ -79,7 +93,7 @@ class Network_controller: # manage id and connection
             print('Connect to %s failed, %s: %s' % (str(addr), type(e), str(e)))
             return
 
-        connection = Connection(conn, addr, self, positive=True)
+        connection = Connection(conn, addr, self, positive=True, conntype=conntype)
         connection.i_did_something()
 
 
@@ -93,9 +107,10 @@ class Network_controller: # manage id and connection
             lines = raw_data.split('\n')
             for line in lines:
                 ip, port = line.split(':')
+                ip = socket.gethostbyname(ip)
                 port = int(port)
 
-                self.addrlist.append((ip, port))
+                self.conflist.append((ip, port))
     
 
     def i_did_something(self): # go f**k your yeallow line
@@ -104,7 +119,11 @@ class Network_controller: # manage id and connection
 
     def process_command(self, dp):
         if dp.body == b'status':
-            print('Online %s' % str(list(self.id_dict.keys())))
+            print('Online %s' % str(self.id_dict))
+            print('conflist %s' % str(self.conflist))
+            print('conflist_pass %s' % str(self.conflist_pass))
+            print('mhtlist %s' % str(self.mhtlist))
+            print('mhtlist_pass %s' % str(self.mhtlist_pass))
         elif dp.body == b'mht' and dp.method == 'get':
             ndp = dp.reply()
 
@@ -114,12 +133,21 @@ class Network_controller: # manage id and connection
                     connections = self.id_dict[id]
                     for connection in connections:
                         ip, port = connection.conn.getpeername()
-                        listen_port = connection.listen_port
-                        connection_list.append((ip, listen_port))
+                        port = int(connection.listen_port)
+                        connection_list.append((ip, port))
             
             ndp.body = json.dumps(connection_list).encode()
 
             send_queue.put(ndp)
+
+        elif dp.method == 'reply':
+            mhtstr = dp.body.decode()
+            mhtlist = json.loads(mhtstr)
+            with self.lock:
+                for addr in mhtlist:
+                    addr = (addr[0], addr[1])
+                    if not addr in self.mhtlist and not addr in self.mhtlist_pass:
+                        self.mhtlist.append(addr)
 
         else:
             print('Received unknown command', dp)
@@ -184,26 +212,59 @@ class Network_controller: # manage id and connection
             connection.i_did_something()
 
 
-    def set_connection(self, id, connection):
+    def set_connection(self, connection):
+        id = connection.id
         with self.lock:
             if not self.id_dict.get(id):
                 self.id_dict[id] = []
             self.id_dict[id].append(connection)
             self.all_connection_list.append(connection)
+
+            xxxlist, xxxlist_pass = self.getlist(connection.conntype)
+            addr = (connection.addr[0], connection.listen_port)
+            if addr in xxxlist:
+                xxxlist.remove(addr)
+            if not addr in xxxlist_pass:
+                xxxlist_pass.append(addr)
+
             print('%s connected' % id)
 
 
-    def del_connection(self, id, connection):
+    def del_connection(self, connection):
+        id = connection.id
         with self.lock:
             self.id_dict[id].remove(connection)
             self.all_connection_list.remove(connection)
             if id in self.id_dict and not self.id_dict.get(id): # del the empty user
                 del(self.id_dict[id])
+
+            if connection.listen_port: # avoid "None" addr port
+                xxxlist, xxxlist_pass = self.getlist(connection.conntype)
+                addr = (connection.addr[0], connection.listen_port)
+                if not addr in xxxlist:
+                    xxxlist.append(addr)
+                if addr in xxxlist_pass:
+                    xxxlist_pass.remove(addr)
+
             print('%s disconnected' % id)
+
+    
+    def getlist(self, conntype):
+        if conntype == 'net':
+            return self.netlist, self.netlist_pass
+        elif conntype == 'conf':
+            return self.conflist, self.conflist_pass
+        elif conntype == 'mht':
+            return self.mhtlist, self.mhtlist_pass
+        elif conntype == 'proxy':
+            return self.proxylist, self.proxylist_pass
+        else:
+            print('Could not find conntype %s' % conntype)
+            return None, None
 
 
 class Connection:
-    def __init__(self, conn, addr, netowrk_controller, positive=False):
+    def __init__(self, conn, addr, netowrk_controller, positive=False, conntype='normal'):
         self.conn = conn
         self.addr = addr
         self.netowrk_controller = netowrk_controller
@@ -212,7 +273,16 @@ class Connection:
         self.padding_queue = queue.Queue()
         self.thread_send = None
         self.positive = positive
-        self.listen_port = None
+        self.listen_port = addr[1]
+
+        self.conntype = conntype
+        if self.conntype == 'normal':
+            if self.positive == True:
+                self.conntype = 'conf'
+            else:
+                self.conntype = 'net'
+        # type list
+        # normal(positive=True:conf,  positive=False:net), mht, proxy
 
         self.thread_recv = threading.Thread(target=self._init, args=(), daemon=True)
         self.thread_recv.start()
@@ -223,8 +293,9 @@ class Connection:
         if err_code:
             print('<%s> Init connection failed, connection closed, code: %s' % (flag, err_code))
             self.conn.close()
+            return
 
-        self.netowrk_controller.set_connection(self.id, self)
+        self.netowrk_controller.set_connection(self)
         
         self.thread_send = threading.Thread(target=self.send_func, args=(), daemon=True)
         self.thread_send.start()
@@ -290,7 +361,7 @@ class Connection:
         
         # below code are using to closed connection
         self.conn.close()
-        self.netowrk_controller.del_connection(self.id, self)
+        self.netowrk_controller.del_connection(self)
 
         
     def check_id(self):
@@ -331,7 +402,7 @@ class Connection:
             return 3, dp.head.get('flag')
 
         self.id = dp.head['id']
-        self.listen_port = dp.head.get('listen_port')
+        self.listen_port = int(dp.head.get('listen_port'))
 
         if self.id == jsondata.try_to_read_jsondata('id', 'unknown_id'):
             print('you connect to your self')
