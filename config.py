@@ -57,6 +57,24 @@ class Jsondata:
             if self.auto_save:
                 pass
 
+
+def create_floder(path):
+    pathlist = list(os.path.split(path))
+    pathlist.pop()
+    flordpath = os.path.join(pathlist)
+
+    if not os.path.exists(flordpath):
+        _create_floder(flordpath)
+    
+def _create_floder(path):
+    pathlist = list(os.path.split(path))
+    pathlist.pop()
+    flordpath = os.path.join(pathlist)
+
+    if not os.path.exists(flordpath):
+        _create_floder(flordpath)
+    os.mkdir(flordpath)
+
 global_config = {}
 msw_queue = queue.Queue()
 jsondata = Jsondata()

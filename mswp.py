@@ -93,8 +93,9 @@ class Datapack:
         ndp = copy.copy(self)
         ndp.app = ndp.head['from']
         ndp.method = 'reply'
-        ndp.head['to'] = self.head['id']
-        ndp.id = ID
+        if not self.head['id'] == ID: # net package
+            ndp.head['to'] = self.head['id']
+            ndp.head['id'] = ID
         return ndp
         
 

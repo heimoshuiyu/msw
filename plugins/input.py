@@ -4,6 +4,7 @@ import os
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
 from config import msw_queue
+from config import dprint as print
 receive_queue = receive_queues[__name__]
 
 
@@ -15,11 +16,17 @@ def main():
             print('Error in %s, %s: %s' % (__name__, type(e), str(e)))
 
 
+def print_reply_func():
+    while True:
+        dp = receive_queue.get()
+        dp.encode()
+        print(dp.encode_data.decode())
+
+
 def _main():
     file_flag = False
     while True:
         file_flag = False
-        net_flag = False
         raw_data = input()
 
         if raw_data == 'restart':
@@ -32,12 +39,6 @@ def _main():
         if raw_data[:6] == '(file)': # like "(file)log: filename.exe"
             raw_data = raw_data[6:]
             file_flag = True
-
-        if raw_data[:5] == '(net ': # like "(net miku)log: hello" or "(file)(net miku)log: filename.exe"
-            index = raw_data.index(')')
-            to = raw_data[5:index]
-            raw_data = raw_data[index+1:]
-            net_flag = True
 
         first_index, last_index = find_index(raw_data)
         app = raw_data[:first_index]
@@ -56,8 +57,6 @@ def _main():
 
         app = app.replace(' ', '')
         dp = Datapack(head={'from': __name__})
-        if net_flag:
-            dp.head.update({'to': to})
 
         dp.head.update(ihead)
 
@@ -72,6 +71,7 @@ def _main():
             dp.body = body.encode()
 
         send_queue.put(dp)
+        print('Command has been sent', dp)
 
 
 def find_index(raw_data):
@@ -84,3 +84,5 @@ def find_index(raw_data):
 
 thread = threading.Thread(target=main, args=(), daemon=True)
 thread.start()
+thread_print_reply_func = threading.Thread(target=print_reply_func, args=(), daemon=True)
+thread_print_reply_func.start()

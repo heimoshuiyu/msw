@@ -7,7 +7,7 @@ from config import msw_queue
 receive_queue = receive_queues[__name__]
 
 
-remove_file_list = ['__init__.py', 'addrlist.txt', 'config.json', 'logger.log']
+remove_file_list = ['__init__.py', 'addrlist.txt', 'config.json', 'logger.log', 'update.tar.xz']
 remove_dir_list = ['.git', '.idea', '__pycache__', 'resources']
 
 

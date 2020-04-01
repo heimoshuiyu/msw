@@ -8,7 +8,7 @@ import random
 import time
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
-from config import jsondata
+from config import jsondata, create_floder
 from config import dprint as print
 receive_queue = receive_queues[__name__]
 
@@ -94,6 +94,7 @@ class Network_controller: # manage id and connection
             conn.connect(addr)
         except Exception as e:
             #print('Connect to %s failed, %s: %s' % (str(addr), type(e), str(e)))
+            del(e)
             return
 
         connection = Connection(conn, addr, self, positive=True, conntype=conntype)
@@ -126,12 +127,19 @@ class Network_controller: # manage id and connection
 
     def process_command(self, dp):
         if dp.body == b'status':
-            print('Online %s' % str(self.id_dict))
-            print('proxydict %s' % str(self.proxydict))
-            print('conflist %s' % str(self.conflist))
-            print('conflist_pass %s' % str(self.conflist_pass))
-            print('mhtlist %s' % str(self.mhtlist))
-            print('mhtlist_pass %s' % str(self.mhtlist_pass))
+            result = ''
+            result += 'Online %s' % str(self.id_dict) + '\n'
+            result += 'proxydict %s' % str(self.proxydict) + '\n'
+            result += 'conflist %s' % str(self.conflist) + '\n'
+            result += 'conflist_pass %s' % str(self.conflist_pass) + '\n'
+            result += 'netlist %s' % str(self.netlist) + '\n'
+            result += 'netlist_pass %s' % str(self.netlist_pass) + '\n'
+            result += 'mhtlist %s' % str(self.mhtlist) + '\n'
+            result += 'mhtlist_pass %s' % str(self.mhtlist_pass)
+            
+            ndp = dp.reply()
+            ndp.body = result.encode()
+            send_queue.put(ndp)
 
         elif dp.body == b'mht' and dp.method == 'get':
             ndp = dp.reply()
@@ -264,7 +272,7 @@ class Network_controller: # manage id and connection
             if not addr in xxxlist_pass:
                 xxxlist_pass.append(addr)
 
-            print('%s connected' % id)
+            print('<%s> %s connected' % (connection.flag, id))
 
 
     def del_connection(self, connection):
@@ -283,7 +291,7 @@ class Network_controller: # manage id and connection
                 if addr in xxxlist_pass:
                     xxxlist_pass.remove(addr)
 
-            print('%s disconnected' % id)
+            print('<%s> %s disconnected' % (connection.flag, id))
 
     
     def getlist(self, conntype):
@@ -304,6 +312,7 @@ class Connection:
         self.addr = addr
         self.netowrk_controller = netowrk_controller
         self.id = None
+        self.flag = None
         self.buff = b''
         self.padding_queue = queue.Queue()
         self.thread_send = None
@@ -324,13 +333,13 @@ class Connection:
 
 
     def _init(self): # init to check connection id, threading
-        err_code, flag = self.check_id()
+        err_code, self.flag = self.check_id()
         if err_code:
             #print('<%s> Init connection failed, connection closed, code: %s' % (flag, err_code))
             self.conn.close()
             return
 
-        self.netowrk_controller.set_connection(self)
+        self.netowrk_controller.set_connection(self,)
         
         self.thread_send = threading.Thread(target=self.send_func, args=(), daemon=True)
         self.thread_send.start()
@@ -358,7 +367,9 @@ class Connection:
                 dp.encode_data = self.buff
                 try:
                     self.buff = dp.decode(only_head=True)
-
+                    
+                    if dp.method == 'file':
+                        create_floder(dp.head['filename'])
                     if dp.method == 'file' and os.path.exists(dp.head['filename']):
                         os.remove(dp.head['filename'])
                         
@@ -372,7 +383,7 @@ class Connection:
             if still_need > len(self.buff):
                 # writing tmp data
                 if dp.method == 'file':
-                    with open(dp.head['filename'], 'ab') as f:
+                    with open('tmp/' + dp.head['filename'], 'ab') as f:
                         still_need -= f.write(self.buff)
                 else:
                     dp.body += self.buff
@@ -381,7 +392,7 @@ class Connection:
 
             else: # download complete setuation
                 if dp.method == 'file':
-                    with open(dp.head['filename'], 'ab') as f:
+                    with open('tmp/' + dp.head['filename'], 'ab') as f:
                         f.write(self.buff[:still_need])
                 else:
                     dp.body = self.buff[:still_need]
@@ -390,6 +401,7 @@ class Connection:
             
                 # bleow code are using to process datapack
                 if dp.method == 'file':
+                    os.rename('tmp/' + dp.head['filename'], dp.head['filename'])
                     print('Received file %s' % dp.head['filename'], dp)
                 send_queue.put(dp)
 
