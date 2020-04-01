@@ -5,6 +5,6 @@ import sys
 python = sys.executable
 
 while True:
-    code = os.system('python msw.py')
+    code = os.system(python + ' msw.py')
     if code:
         break

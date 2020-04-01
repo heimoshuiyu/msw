@@ -61,7 +61,7 @@ class Network_controller: # manage id and connection
             dp.method = 'get'
             dp.body = b'mht'
 
-            print('Send mht request', dp)
+            #print('Send mht request', dp)
             
             send_queue.put(dp)
 
@@ -90,7 +90,7 @@ class Network_controller: # manage id and connection
         try:
             conn.connect(addr)
         except Exception as e:
-            print('Connect to %s failed, %s: %s' % (str(addr), type(e), str(e)))
+            #print('Connect to %s failed, %s: %s' % (str(addr), type(e), str(e)))
             return
 
         connection = Connection(conn, addr, self, positive=True, conntype=conntype)
@@ -199,6 +199,7 @@ class Network_controller: # manage id and connection
 
         listen_ip = jsondata.try_to_read_jsondata('listen_ip', '127.0.0.1')
         listen_port = jsondata.try_to_read_jsondata('listen_port', 3900)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((listen_ip, listen_port))
 
         listen_num = jsondata.try_to_read_jsondata('listen_num', 39)
