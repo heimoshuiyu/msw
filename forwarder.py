@@ -36,10 +36,17 @@ def send_queue_function():
                 object_app, new_dp = process_reforware(new_dp)
                 receive_queues[add_plugins_string(object_app)].put(new_dp)
         elif 'to' in dp.head: # send to net if "to" avaliable
-            receive_queues[add_plugins_string('net')].put(dp)
+            put('net', dp)
         else:
             object_app, dp = process_reforware(dp)
-            receive_queues[add_plugins_string(object_app)].put(dp)
+            put(object_app, dp)
+
+def put(appname, dp):
+    realappname = add_plugins_string(appname)
+    if not receive_queues.get(realappname):
+        print('KeyError, Could not find queue %s' % realappname)
+    else:
+        receive_queues[realappname].put(dp)
 
 
 def process_reforware(dp):

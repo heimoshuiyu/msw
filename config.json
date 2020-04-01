@@ -3,5 +3,6 @@
   "listen_port": 3900,
   "listen_ip": "127.0.0.1",
   "listen_num": 39,
-  "buffsize": 4096
+  "buffsize": 4096,
+  "proxy": false
 }

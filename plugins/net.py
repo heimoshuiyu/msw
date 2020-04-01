@@ -4,6 +4,7 @@ import copy
 import queue
 import json
 import os
+import random
 import time
 from mswp import Datapack
 from forwarder import receive_queues, send_queue
@@ -34,8 +35,10 @@ class Network_controller: # manage id and connection
         self.conflist_pass = []
         self.mhtlist = [] # store exchanged connection
         self.mhtlist_pass = []
-        self.proxylist = [] # store connection behind proxy
-        self.proxylist_pass = []
+        self.proxydict = {}
+
+        self.alllist = [self.netlist, self.netlist_pass, self.conflist, self.conflist_pass, \
+            self.mhtlist, self.mhtlist_pass]
 
         self.start_wheel_thread = threading.Thread(target=self.start_wheel, args=(), daemon=True)
         self.start_wheel_thread.start()
@@ -111,7 +114,11 @@ class Network_controller: # manage id and connection
                 port = int(port)
 
                 self.conflist.append((ip, port))
-    
+
+
+        if jsondata.try_to_read_jsondata('proxy', False):
+            self.proxydict[ID] = jsondata.raw_jsondata['proxy']
+
 
     def i_did_something(self): # go f**k your yeallow line
         pass
@@ -120,13 +127,16 @@ class Network_controller: # manage id and connection
     def process_command(self, dp):
         if dp.body == b'status':
             print('Online %s' % str(self.id_dict))
+            print('proxydict %s' % str(self.proxydict))
             print('conflist %s' % str(self.conflist))
             print('conflist_pass %s' % str(self.conflist_pass))
             print('mhtlist %s' % str(self.mhtlist))
             print('mhtlist_pass %s' % str(self.mhtlist_pass))
+
         elif dp.body == b'mht' and dp.method == 'get':
             ndp = dp.reply()
 
+            data_dict = {}
             connection_list = []
             with self.lock:
                 for id in self.id_dict:
@@ -135,23 +145,35 @@ class Network_controller: # manage id and connection
                         ip, port = connection.conn.getpeername()
                         port = int(connection.listen_port)
                         connection_list.append((ip, port))
-            
-            ndp.body = json.dumps(connection_list).encode()
+            data_dict['mht'] = connection_list
+            data_dict['proxy'] = self.proxydict
+
+            ndp.body = json.dumps(data_dict).encode()
 
             send_queue.put(ndp)
 
         elif dp.method == 'reply':
             mhtstr = dp.body.decode()
-            mhtlist = json.loads(mhtstr)
+            data_dict = json.loads(mhtstr)
+            mhtlist = data_dict['mht']
             with self.lock:
                 for addr in mhtlist:
                     addr = (addr[0], addr[1])
-                    if not addr in self.mhtlist and not addr in self.mhtlist_pass:
+                    if not self.check_in_list(addr):
                         self.mhtlist.append(addr)
+
+                self.proxydict.update(data_dict['proxy'])
 
         else:
             print('Received unknown command', dp)
 
+    
+    def check_in_list(self, addr):
+        for l in self.alllist:
+            if addr in l:
+                return True
+        return False
+        
     
     def start_sending_dp(self):
         while True:
@@ -173,18 +195,32 @@ class Network_controller: # manage id and connection
                         connection = self.id_dict[id][0]
                         connection.sendall(dp)
             
-            else:            
-                connections = self.id_dict.get(to)
-                if not connections:
-                    if to == ID:
-                        print('To id %s is yourself!' % to, dp)
-                        continue
-                    print('To id %s has no connection now' % to, dp)
-                    self.wheel_queue.put(dp)
-                    continue
-                
-                connection = connections[0]
-                connection.sendall(dp)
+            else:
+                self.send_to_id(to, dp)
+
+    
+    def send_to_id(self, to, dp): # send to 1 id, process proxy at the same time
+
+        connections = self.id_dict.get(to)
+        if not connections:
+            if to == ID:
+                print('To id %s is yourself!' % to, dp) # maybe proxy to yourself
+                return
+            if to in self.proxydict: # neat warning dangerous code
+                if dp.head['to']:
+                    dp.head['to'] = self.proxydict[to] + '&' + to + '&' + dp.head['to']
+                else:
+                    dp.head['to'] = self.proxydict[to] + '&' + to
+
+                send_queue.put(dp)
+                return
+
+            print('To id %s has no connection now' % to, dp)
+            self.wheel_queue.put(dp)
+            return
+        
+        connection = connections[0]
+        connection.sendall(dp)
 
 
     def start_wheel(self):
@@ -257,8 +293,6 @@ class Network_controller: # manage id and connection
             return self.conflist, self.conflist_pass
         elif conntype == 'mht':
             return self.mhtlist, self.mhtlist_pass
-        elif conntype == 'proxy':
-            return self.proxylist, self.proxylist_pass
         else:
             print('Could not find conntype %s' % conntype)
             return None, None
@@ -292,7 +326,7 @@ class Connection:
     def _init(self): # init to check connection id, threading
         err_code, flag = self.check_id()
         if err_code:
-            print('<%s> Init connection failed, connection closed, code: %s' % (flag, err_code))
+            #print('<%s> Init connection failed, connection closed, code: %s' % (flag, err_code))
             self.conn.close()
             return
 
@@ -405,8 +439,8 @@ class Connection:
         self.id = dp.head['id']
         self.listen_port = int(dp.head.get('listen_port'))
 
-        if self.id == jsondata.try_to_read_jsondata('id', 'unknown_id'):
-            print('you connect to your self')
+        if self.id == ID:
+            #print('you connect to your self')
             return 4, dp.head.get('flag')
 
         if not self.positive:
@@ -431,13 +465,16 @@ class Connection:
         while True:
             dp = self.padding_queue.get()
             dp.encode()
+            self.conn.sendall(dp.encode_data)
             if dp.method == 'file':
-                self.conn.sendall(dp.encode_data)
                 with open(dp.head['filename'], 'rb') as f:
                     for data in f:
-                        self.conn.sendall(data)
-            else:
-                self.conn.sendall(dp.encode_data)
+                        try:
+                            self.conn.sendall(data)
+                        except Exception as e:
+                            print('Failed to send file %s %s: %s' % (dp.head['filename'], type(e), str(e)), dp)
+                            continue
+                    print('Send file %s finished' % dp.head['filename'], dp)
 
     
     def i_did_something(self):
