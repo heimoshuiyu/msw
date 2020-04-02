@@ -61,7 +61,7 @@ class Jsondata:
 def create_floder(path):
     pathlist = list(os.path.split(path))
     pathlist.pop()
-    flordpath = os.path.join(pathlist)
+    flordpath = '/'.join(pathlist)
 
     if not os.path.exists(flordpath):
         _create_floder(flordpath)
@@ -69,11 +69,12 @@ def create_floder(path):
 def _create_floder(path):
     pathlist = list(os.path.split(path))
     pathlist.pop()
-    flordpath = os.path.join(pathlist)
+    flordpath = '/'.join(pathlist)
 
     if not os.path.exists(flordpath):
         _create_floder(flordpath)
-    os.mkdir(flordpath)
+    if not os.path.exists(path):
+        os.mkdir(path)
 
 global_config = {}
 msw_queue = queue.Queue()

@@ -370,11 +370,13 @@ class Connection:
                     
                     if dp.method == 'file':
                         create_floder(dp.head['filename'])
+                        create_floder('tmp/' + dp.head['filename'])
                     if dp.method == 'file' and os.path.exists(dp.head['filename']):
                         os.remove(dp.head['filename'])
                         
                 except Exception as e:
                     print('Decode head failed %s: %s' % (type(e), str(e)))
+                    print(self.buff)
                     continue
 
                 length = int(dp.head.get('length'))
@@ -396,7 +398,7 @@ class Connection:
                         f.write(self.buff[:still_need])
                 else:
                     dp.body = self.buff[:still_need]
-                    self.buff = self.buff[still_need:]
+                self.buff = self.buff[still_need:]
                 still_need = 0
             
                 # bleow code are using to process datapack
