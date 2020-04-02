@@ -90,7 +90,7 @@ class Datapack:
         
 
     def reply(self):
-        ndp = copy.copy(self)
+        ndp = copy.deepcopy(self)
         ndp.app = ndp.head['from']
         ndp.method = 'reply'
         if not self.head['id'] == ID: # net package

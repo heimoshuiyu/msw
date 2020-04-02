@@ -191,6 +191,10 @@ class Network_controller: # manage id and connection
                 self.process_command(dp)
                 continue
             
+            if not dp.head.get('to'):
+                print('You got a no head datapack')
+                print(str(dp.head))
+
             to_str = dp.head['to']
             to_list = to_str.split('&')
             to = to_list.pop(0)
@@ -202,7 +206,9 @@ class Network_controller: # manage id and connection
                     for id in self.id_dict:
                         connection = self.id_dict[id][0]
                         connection.sendall(dp)
-            
+            elif not to:
+                print('not to', dp)
+
             else:
                 self.send_to_id(to, dp)
 
@@ -224,6 +230,10 @@ class Network_controller: # manage id and connection
                 return
 
             print('To id %s has no connection now' % to, dp)
+            if dp.head.get('to'):
+                dp.head['id'] = to + '&' + dp.head['id'] 
+            else:
+                dp.head['id'] = to
             self.wheel_queue.put(dp)
             return
         
@@ -377,7 +387,7 @@ class Connection:
                 except Exception as e:
                     print('Decode head failed %s: %s' % (type(e), str(e)))
                     print(self.buff)
-                    continue
+                    break
 
                 length = int(dp.head.get('length'))
                 still_need = length
@@ -487,7 +497,8 @@ class Connection:
                             self.conn.sendall(data)
                         except Exception as e:
                             print('Failed to send file %s %s: %s' % (dp.head['filename'], type(e), str(e)), dp)
-                            continue
+                            self.netowrk_controller.wheel_queue.put(dp)
+                            break
                     print('Send file %s finished' % dp.head['filename'], dp)
 
     

@@ -35,6 +35,12 @@ def _main():
         if raw_data == 'exit':
             msw_queue.put(1)
             break
+        if raw_data == 'update':
+            raw_data = 'update:compress;update_to:*'
+        if raw_data == '1':
+            raw_data = 'ffmpeg:start;filename:res/test.mp4'
+        if raw_data == '2':
+            raw_data = 'ffmpeg:enable;to:*,server:miku'
 
         if raw_data[:6] == '(file)': # like "(file)log: filename.exe"
             raw_data = raw_data[6:]

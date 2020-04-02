@@ -67,6 +67,8 @@ def create_floder(path):
         _create_floder(flordpath)
     
 def _create_floder(path):
+    if not path:
+        return
     pathlist = list(os.path.split(path))
     pathlist.pop()
     flordpath = '/'.join(pathlist)

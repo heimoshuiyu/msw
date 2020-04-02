@@ -8,7 +8,7 @@ receive_queue = receive_queues[__name__]
 
 
 remove_file_list = ['__init__.py', 'addrlist.txt', 'config.json', 'logger.log', 'update.tar.xz']
-remove_dir_list = ['.git', '.idea', '__pycache__', 'resources', 'tmp']
+remove_dir_list = ['.git', '.idea', '__pycache__', 'resources', 'tmp', 'res']
 
 
 def main():
@@ -33,7 +33,7 @@ def main():
                 ndp = Datapack(head={'from':__name__})
                 ndp.method = 'file'
                 ndp.app = 'update'
-                ndp.head['filename'] = 'resources/update.tar.xz'
+                ndp.head['filename'] = 'res/update.tar.xz'
                 ndp.head['to'] = to
 
                 send_queue.put(ndp)
@@ -59,7 +59,7 @@ class Compresser:
         self.compress_files(self.filelist)
 
     def compress_files(self, filelist):
-        with tarfile.open('resources/update.tar.xz', 'w:xz') as f:
+        with tarfile.open('res/update.tar.xz', 'w:xz') as f:
             for name in filelist:
                 f.add(name)
 
