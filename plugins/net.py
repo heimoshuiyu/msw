@@ -111,8 +111,8 @@ class Network_controller: # manage id and connection
         if not os.path.exists('addrlist.txt'):
             print('addrlist.txt not exists, config that base on addrlist_sample.txt')
         else:
-            with open('addrlist.txt', 'r') as f:
-                raw_data = f.read()
+            with open('addrlist.txt', 'rb') as f:
+                raw_data = f.read().decode('utf-8')
             raw_data = raw_data.replace('\r', '')
             lines = raw_data.split('\n')
             for line in lines:
@@ -531,9 +531,9 @@ class Connection:
                                 dp.head['to'] = self.id
                             self.netowrk_controller.wheel_queue.put(dp)
                             break
-                    if dp.delete:
-                        os.remove(dp.head['filename'])
-                    print('Send file %s finished' % dp.head['filename'], dp)
+                if dp.delete:
+                    os.remove(dp.head['filename'])
+                print('Send file %s to %s finished' % (dp.head['filename'], self.id), dp)
 
     
     def i_did_something(self):

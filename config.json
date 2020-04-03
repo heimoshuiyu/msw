@@ -1,7 +1,7 @@
 {
   "id": "miku",
-  "listen_port": 3900,
-  "listen_ip": "127.0.0.1",
+  "listen_port": 3939,
+  "listen_ip": "0.0.0.0",
   "listen_num": 39,
   "buffsize": 4096,
   "proxy": false,

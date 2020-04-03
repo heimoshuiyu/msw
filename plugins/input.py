@@ -38,7 +38,7 @@ def _main():
         if raw_data == 'update':
             raw_data = 'update:compress;update_to:*'
         if raw_data == '1':
-            raw_data = 'ffmpeg:start;filename:res/test.mp4'
+            raw_data = 'ffmpeg:start;filename:test.mp4,concat:false'
         if raw_data == '2':
             raw_data = 'ffmpeg:enable;to:*,server:miku'
 

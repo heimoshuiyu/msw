@@ -58,7 +58,7 @@ class Ffmpeg_controller:
                     send_queue.put(ndp)
 
                     cmd = 'ffmpeg -i ' + dp.head['filename'] + ' -c copy -f segment -segment_time 20 \
-                        -reset_timestamps 1 -y res/ffmpeg_tmp/' + '%d' + '.mp4'
+                        -reset_timestamps 1 -y res/ffmpeg_tmp/' + '%d' + '.mkv'
                     
                     os.system(cmd)
 
@@ -72,7 +72,7 @@ class Ffmpeg_controller:
                     with open('res/ffmpeg_finished/filelist.txt', 'w') as f:
                         for file in filelist:
                             f.write('file \'%s\'\n' % file)
-                    object_filename = self.org_filename[:-4] + '.mkv'
+                    object_filename = self.org_filename[:-4] + '_conver.mkv'
                     subprocess.check_output('ffmpeg -f concat -i res/ffmpeg_finished/filelist.txt \
                         -c copy -y ' + object_filename, shell=True)
                     
@@ -188,7 +188,7 @@ class Ffmpeg_controller:
             dp = self.conver_task_queue.get()
 
             filename = dp.head['filename']
-            output_filename = filename[:-4] + '.mkv'
+            output_filename = filename[:-4] + '_conver.mkv'
             output_filename = output_filename.replace('ffmpeg_tmp', 'ffmpeg_finished')
             os.system('ffmpeg -i ' + filename + ' -c:a libopus -ab 64k \
                 -c:v libx265 -s 1280x720 -y ' + output_filename)
@@ -206,12 +206,13 @@ class Ffmpeg_controller:
                 
 
     def send_request(self):
-        dp = Datapack(head={'from': __name__})
-        dp.method = 'get'
-        dp.app = 'ffmpeg'
-        dp.head['to'] = self.server
-        
-        send_queue.put(dp)
+        if self.status:
+            dp = Datapack(head={'from': __name__})
+            dp.method = 'get'
+            dp.app = 'ffmpeg'
+            dp.head['to'] = self.server
+            
+            send_queue.put(dp)
 
 
 def get_one_from_dict(d):
