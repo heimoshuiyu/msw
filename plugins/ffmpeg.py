@@ -24,6 +24,7 @@ class Ffmpeg_controller:
         self.server = None
         self.conver_task_queue = queue.Queue()
         self.org_filename = None
+        self.concat = True
 
         self.conver_task_thread = threading.Thread(target=self.conver_task_func, args=())
         self.conver_task_thread.start()
@@ -39,32 +40,48 @@ class Ffmpeg_controller:
             dp = receive_queue.get()
 
             if dp.method == 'post' and dp.body == b'start': # config ffmpeg is server or client
-                self.org_filename = dp.head['filename']
-                ndp = dp.reply()
-                ndp.body = 'Spliting file %s' % dp.head['filename']
-                ndp.body = ndp.body.encode()
-                send_queue.put(ndp)
+                if dp.head.get('concat'):
+                    if dp.head['concat'] == 'true':
+                        self.concat = True
+                    elif dp.head['concat'] == 'false':
+                        self.concat = False
+                    else:
+                        print('unknown concat value')
+                        continue
 
-                cmd = 'ffmpeg -i ' + dp.head['filename'] + ' -c copy -f segment -segment_time 20 \
-                    -reset_timestamps 1 -y res/ffmpeg_tmp/' + '%d' + '.mp4'
+                self.org_filename = dp.head['filename']
                 
-                os.system(cmd)
+                if self.concat:
+                    ndp = dp.reply()
+                    ndp.body = 'Spliting file %s' % dp.head['filename']
+                    ndp.body = ndp.body.encode()
+                    send_queue.put(ndp)
+
+                    cmd = 'ffmpeg -i ' + dp.head['filename'] + ' -c copy -f segment -segment_time 20 \
+                        -reset_timestamps 1 -y res/ffmpeg_tmp/' + '%d' + '.mp4'
+                    
+                    os.system(cmd)
 
                 self.run_as_server()
 
-                # concat all file
-                filelist = os.listdir('res/ffmpeg_finished')
-                if 'filelist.txt' in filelist:
-                    filelist.remove('filelist.txt')
-                with open('res/ffmpeg_finished/filelist.txt', 'w') as f:
+                if self.concat:
+                    # concat all file
+                    filelist = os.listdir('res/ffmpeg_finished')
+                    if 'filelist.txt' in filelist:
+                        filelist.remove('filelist.txt')
+                    with open('res/ffmpeg_finished/filelist.txt', 'w') as f:
+                        for file in filelist:
+                            f.write('file \'%s\'\n' % file)
+                    object_filename = self.org_filename[:-4] + '.mkv'
+                    subprocess.check_output('ffmpeg -f concat -i res/ffmpeg_finished/filelist.txt \
+                        -c copy -y ' + object_filename, shell=True)
+                    
                     for file in filelist:
-                        f.write('file \'%s\'\n' % file)
-                object_filename = self.org_filename[:-4] + '.mkv'
-                subprocess.check_output('ffmpeg -f concat -i res/ffmpeg_finished/filelist.txt \
-                    -c copy -y ' + object_filename, shell=True)
+                        os.remove('res/ffmpeg_finished/' + file)
+                    os.remove('res/ffmpeg_finished/filelist.txt')
 
-                print('All process finished at ' + object_filename)
-
+                print('All process finished')
+                
             elif dp.method == 'post' and dp.body == b'enable': # clinet mode
                 self.status = 1
                 self.server = dp.head['server']
@@ -175,11 +192,14 @@ class Ffmpeg_controller:
             output_filename = output_filename.replace('ffmpeg_tmp', 'ffmpeg_finished')
             os.system('ffmpeg -i ' + filename + ' -c:a libopus -ab 64k \
                 -c:v libx265 -s 1280x720 -y ' + output_filename)
+
+            os.remove(filename)
             
             ndp = dp.reply()
             ndp.head['filename'] = output_filename
             ndp.head['old_filename'] = filename
             ndp.method = 'file'
+            ndp.delete = True
             send_queue.put(ndp)
 
             self.send_request()

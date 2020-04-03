@@ -30,7 +30,7 @@ BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
 ID = jsondata.try_to_read_jsondata('id', 'unknown_id')
 class Datapack:
     def __init__(self, method='post', app='all', version='msw/0.1', head=None, body=b'', 
-    file=None, gen_flag=True):
+    file=None, gen_flag=True, delete=False):
         self.id = ID
         if head is None:
             head = {}
@@ -38,6 +38,7 @@ class Datapack:
         self.head['id'] = self.id
         self.method = method
         self.file = file
+        self.delete = delete
         self.app = app
         self.version = version
         self.body = body
@@ -93,6 +94,7 @@ class Datapack:
         ndp = copy.deepcopy(self)
         ndp.app = ndp.head['from']
         ndp.method = 'reply'
+        ndp.delete = False
         if not self.head['id'] == ID: # net package
             ndp.head['to'] = self.head['id']
             ndp.head['id'] = ID

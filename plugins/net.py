@@ -15,6 +15,9 @@ receive_queue = receive_queues[__name__]
 BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
 ID = jsondata.try_to_read_jsondata('id', 'Unknown_ID')
 RETRYSLEEP = 5
+MYPROXY = jsondata.try_to_read_jsondata('proxy', False)
+ONLYPROXY = jsondata.try_to_read_jsondata('onlyproxy', False)
+
 
 def main():
     network_controller = Network_controller()
@@ -23,6 +26,9 @@ def main():
 
 class Network_controller: # manage id and connection
     def __init__(self):
+        if ONLYPROXY and not MYPROXY:
+            print('config failed because you set onlyproxy true but proxy false')
+            return
         self.send_queue = queue.Queue()
         self.id_dict = {}
         self.lock = threading.Lock()
@@ -153,6 +159,12 @@ class Network_controller: # manage id and connection
                         ip, port = connection.conn.getpeername()
                         port = int(connection.listen_port)
                         connection_list.append((ip, port))
+                for addr in self.conflist:
+                    if not addr in connection_list:
+                        connection_list.append(addr)
+                for addr in self.conflist_pass:
+                    if not addr in connection_list:
+                        connection_list.append(addr)
             data_dict['mht'] = connection_list
             data_dict['proxy'] = self.proxydict
 
@@ -208,6 +220,13 @@ class Network_controller: # manage id and connection
                         connection.sendall(dp)
             elif not to:
                 print('not to', dp)
+
+            elif ONLYPROXY and not to == MYPROXY:
+                if dp.head['to']:
+                    dp.head['to'] = to + dp.head['to']
+                else:
+                    dp.head['to'] = to
+                self.send_to_id(MYPROXY, dp)
 
             else:
                 self.send_to_id(to, dp)
@@ -349,7 +368,7 @@ class Connection:
             self.conn.close()
             return
 
-        self.netowrk_controller.set_connection(self,)
+        self.netowrk_controller.set_connection(self)
         
         self.thread_send = threading.Thread(target=self.send_func, args=(), daemon=True)
         self.thread_send.start()
@@ -467,6 +486,13 @@ class Connection:
             #print('you connect to your self')
             return 4, dp.head.get('flag')
 
+        if ONLYPROXY and not self.id == MYPROXY: # refuce not proxy connection
+            return 5, dp.head.get('flag')
+
+        if dp.head.get('onlyuseproxy'):
+            if not dp.head['onlyuseproxy'] == ID:
+                return 6, dp.head.get('flag')
+
         if not self.positive:
             self.send_id()
 
@@ -476,6 +502,8 @@ class Connection:
     def send_id(self):
         dp = Datapack(head={'from': __name__})
         dp.app = 'handshake'
+        if ONLYPROXY:
+            dp.head['onlyuseproxy'] = MYPROXY
         dp.head['listen_port'] = str(jsondata.try_to_read_jsondata('listen_port', 3900))
         dp.encode()
         self.conn.sendall(dp.encode_data)
@@ -497,8 +525,14 @@ class Connection:
                             self.conn.sendall(data)
                         except Exception as e:
                             print('Failed to send file %s %s: %s' % (dp.head['filename'], type(e), str(e)), dp)
+                            if dp.head.get('to'):
+                                dp.head['to'] = self.id + '&' + dp.head['to']
+                            else:
+                                dp.head['to'] = self.id
                             self.netowrk_controller.wheel_queue.put(dp)
                             break
+                    if dp.delete:
+                        os.remove(dp.head['filename'])
                     print('Send file %s finished' % dp.head['filename'], dp)
 
     
