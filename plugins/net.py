@@ -111,10 +111,12 @@ class Network_controller: # manage id and connection
         if not os.path.exists('addrlist.txt'):
             print('addrlist.txt not exists, config that base on addrlist_sample.txt')
         else:
-            with open('addrlist.txt', 'rb') as f:
-                raw_data = f.read().decode('utf-8')
+            with open('addrlist.txt', 'r') as f:
+                raw_data = f.read()
             raw_data = raw_data.replace('\r', '')
             lines = raw_data.split('\n')
+            while '' in lines:
+                lines.remove('')
             for line in lines:
                 ip, port = line.split(':')
                 ip = socket.gethostbyname(ip)
