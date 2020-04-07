@@ -24,6 +24,7 @@ def print_reply_func():
 
 
 def _main():
+    last = ''
     file_flag = False
     while True:
         file_flag = False
@@ -38,9 +39,13 @@ def _main():
         if raw_data == 'update':
             raw_data = 'update:compress;update_to:*'
         if raw_data == '1':
-            raw_data = 'ffmpeg:start;filename:test.mp4,concat:false'
+            raw_data = 'ffmpeg:autostart'
         if raw_data == '2':
             raw_data = 'ffmpeg:enable;to:*,server:miku'
+        if raw_data == 'r':
+            raw_data = last
+
+        last = raw_data
 
         if raw_data[:6] == '(file)': # like "(file)log: filename.exe"
             raw_data = raw_data[6:]

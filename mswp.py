@@ -39,12 +39,15 @@ class Datapack:
         self.method = method
         self.file = file
         self.delete = delete
+        self.failed_times = 0
         self.app = app
         self.version = version
         self.body = body
         self.encode_data = b''
         if self.head.get('from'):
             self.head['from'] = process_plugins_name(self.head['from'])
+        else:
+            self.head['from'] = 'unkonwn_app'
         if gen_flag:
             randseed = str(random.random()).encode()
             h = hashlib.sha1()

@@ -14,7 +14,7 @@ receive_queue = receive_queues[__name__]
 
 BUFFSIZE = jsondata.try_to_read_jsondata('buffsize', 4096)
 ID = jsondata.try_to_read_jsondata('id', 'Unknown_ID')
-RETRYSLEEP = 5
+RETRYSLEEP = 3.9
 MYPROXY = jsondata.try_to_read_jsondata('proxy', False)
 ONLYPROXY = jsondata.try_to_read_jsondata('onlyproxy', False)
 
@@ -84,17 +84,19 @@ class Network_controller: # manage id and connection
             for addr in self.conflist:
                 self.try_to_connect(addr, conntype='normal')
             
-            time.sleep(3)
+            time.sleep(3.9)
 
             for addr in self.mhtlist:
                 self.try_to_connect(addr, conntype='mht')
 
-            time.sleep(3)
-
-            time.sleep(4)
-        
+            time.sleep(3.9)
 
     def try_to_connect(self, addr, conntype='normal'):
+        thread = threading.Thread(target=self._try_to_connect, args=(addr, conntype))
+        thread.start()
+        
+
+    def _try_to_connect(self, addr, conntype='normal'):
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             conn.connect(addr)
@@ -208,6 +210,7 @@ class Network_controller: # manage id and connection
             if not dp.head.get('to'):
                 print('You got a no head datapack')
                 print(str(dp.head))
+                continue
 
             to_str = dp.head['to']
             to_list = to_str.split('&')
@@ -242,19 +245,24 @@ class Network_controller: # manage id and connection
                 print('To id %s is yourself!' % to, dp) # maybe proxy to yourself
                 return
             if to in self.proxydict: # neat warning dangerous code
-                if dp.head['to']:
-                    dp.head['to'] = self.proxydict[to] + '&' + to + '&' + dp.head['to']
+                if not ID == self.proxydict[to]: # check whether proxy is yourself
+                    if dp.head.get('to'):
+                        dp.head['to'] = self.proxydict[to] + '&' + to + '&' + dp.head['to']
+                    else:
+                        dp.head['to'] = self.proxydict[to] + '&' + to
                 else:
-                    dp.head['to'] = self.proxydict[to] + '&' + to
-
-                send_queue.put(dp)
+                    if dp.head.get('to'):
+                        dp.head['to'] = to + '&' + dp.head['to'] 
+                    else:
+                        dp.head['to'] = to
+                self.wheel_queue.put(dp)
                 return
 
-            print('To id %s has no connection now' % to, dp)
+            print('To id %s has no connection now %d...' % (to, dp.failed_times), dp)
             if dp.head.get('to'):
-                dp.head['id'] = to + '&' + dp.head['id'] 
+                dp.head['to'] = to + '&' + dp.head['to'] 
             else:
-                dp.head['id'] = to
+                dp.head['to'] = to
             self.wheel_queue.put(dp)
             return
         
@@ -265,6 +273,10 @@ class Network_controller: # manage id and connection
     def start_wheel(self):
         while True:
             dp = self.wheel_queue.get()
+            dp.failed_times += 1
+            if dp.failed_times > 39:
+                print('Datapack abandom', dp)
+                continue
             time.sleep(RETRYSLEEP)
             receive_queue.put(dp)
 
@@ -435,7 +447,7 @@ class Connection:
                 # bleow code are using to process datapack
                 if dp.method == 'file':
                     os.rename('tmp/' + dp.head['filename'], dp.head['filename'])
-                    print('Received file %s' % dp.head['filename'], dp)
+                    print('Received file %s from %s' % (dp.head['filename'], self.id), dp)
                 send_queue.put(dp)
 
         
