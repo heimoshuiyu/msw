@@ -356,6 +356,7 @@ class Connection:
         self.netowrk_controller = netowrk_controller
         self.id = None
         self.flag = None
+        self.f = None
         self.buff = b''
         self.padding_queue = queue.Queue()
         self.thread_send = None
@@ -414,6 +415,7 @@ class Connection:
                     if dp.method == 'file':
                         create_floder(dp.head['filename'])
                         create_floder('tmp/' + dp.head['filename'])
+                        self.f = open('tmp/' + dp.head['filename'], 'ab')
                     if dp.method == 'file' and os.path.exists(dp.head['filename']):
                         os.remove(dp.head['filename'])
                         
@@ -428,8 +430,7 @@ class Connection:
             if still_need > len(self.buff):
                 # writing tmp data
                 if dp.method == 'file':
-                    with open('tmp/' + dp.head['filename'], 'ab') as f:
-                        still_need -= f.write(self.buff)
+                    still_need -= self.f.write(self.buff)
                 else:
                     dp.body += self.buff
                     still_need -= len(self.buff)
@@ -437,8 +438,9 @@ class Connection:
 
             else: # download complete setuation
                 if dp.method == 'file':
-                    with open('tmp/' + dp.head['filename'], 'ab') as f:
-                        f.write(self.buff[:still_need])
+                    self.f.write(self.buff[:still_need])
+                    self.f.close()
+                    self.f = None
                 else:
                     dp.body = self.buff[:still_need]
                 self.buff = self.buff[still_need:]
@@ -452,6 +454,9 @@ class Connection:
 
         
         # below code are using to closed connection
+        if self.f:
+            self.f.close()
+            self.f = None
         self.conn.close()
         self.netowrk_controller.del_connection(self)
 

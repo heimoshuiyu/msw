@@ -45,6 +45,7 @@ class Ffmpeg_controller:
         self.object_filename = None
         self.concat = True
         self.pause = False
+        self.autostart = False
         self.tasklist = []
 
         self.convert_task_thread = threading.Thread(target=self.convert_task_func, args=())
@@ -57,6 +58,7 @@ class Ffmpeg_controller:
         _create_floder('res/ffmpeg_tmp')
         _create_floder('res/ffmpeg_finished')
         _create_floder('res/ffmpeg_task')
+        _create_floder('res/ffmpeg_old')
         _create_floder('res/ffmpeg_complet')
 
         while True:
@@ -79,6 +81,7 @@ class Ffmpeg_controller:
                 dp.app = 'ffmpeg'
                 dp.body = b'start'
                 dp.head['filename'] = self.tasklist.pop(0)
+                self.autostart = dp.head['filename']
                 send_queue.put(dp)
 
             if dp.method == 'post' and dp.body == b'start': # config ffmpeg is server or client
@@ -160,6 +163,10 @@ class Ffmpeg_controller:
             pass
         os.remove('res/ffmpeg_finished/filelist.txt')
 
+        if self.autostart:
+            os.rename(self.autostart, self.autostart.replace('ffmpeg_task', 'ffmpeg_old'))
+            self.autostart = None
+
 
     def run_as_server(self):
         _padding_to_convert = os.listdir('res/ffmpeg_tmp')
@@ -182,6 +189,10 @@ class Ffmpeg_controller:
                 ndp = dp.reply()
                 ndp.body = result.encode()
                 send_queue.put(ndp)
+
+            elif dp.method == 'post' and dp.body == b'reset':
+                padding_to_convert = already_in_convert
+                already_in_convert = []
 
             elif dp.method == 'post' and dp.body == b'stop':
                 break
